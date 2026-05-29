@@ -2,7 +2,9 @@ package com.betterbackups;
 
 import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
+import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.HoverEvent;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 
@@ -69,6 +71,14 @@ public final class BackupMessenger {
 
 	public static MutableComponent label(String value) {
 		return text(value, ChatFormatting.WHITE);
+	}
+
+	public static MutableComponent commandButton(String label, String command, String hoverText) {
+		return Component.literal(label)
+			.withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)
+			.withStyle(style -> style
+				.withClickEvent(new ClickEvent.RunCommand(command))
+				.withHoverEvent(new HoverEvent.ShowText(Component.literal(hoverText))));
 	}
 
 	private static void send(CommandSourceStack source, Component body, boolean broadcastToOps) {

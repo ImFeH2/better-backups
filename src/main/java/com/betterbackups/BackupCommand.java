@@ -45,6 +45,7 @@ public final class BackupCommand {
 				.executes(BackupCommand::clearBackups)
 				.then(literal("confirm").executes(BackupCommand::confirmClearBackups)))
 			.then(literal("restore")
+				.then(literal("cancel").executes(BackupCommand::cancelRestore))
 				.then(argument("backup", StringArgumentType.word())
 					.suggests(BACKUP_SUGGESTIONS)
 					.executes(BackupCommand::restoreBackup)))
@@ -65,6 +66,11 @@ public final class BackupCommand {
 				.then(literal("stop-after-restore")
 					.then(literal("on").executes(context -> setStopAfterRestore(context, true)))
 					.then(literal("off").executes(context -> setStopAfterRestore(context, false))))
+				.then(literal("restore-delay")
+					.then(literal("on").executes(context -> setRestoreDelayEnabled(context, true)))
+					.then(literal("off").executes(context -> setRestoreDelayEnabled(context, false)))
+					.then(literal("time")
+						.then(argument("duration", StringArgumentType.word()).executes(BackupCommand::setRestoreDelayTime))))
 				.then(literal("clear-confirm")
 					.then(literal("on").executes(context -> setClearRequiresConfirm(context, true)))
 					.then(literal("off").executes(context -> setClearRequiresConfirm(context, false)))))
@@ -122,8 +128,9 @@ public final class BackupCommand {
 				return 0;
 			}
 
-			BackupMessenger.warning(context.getSource(), "This will delete " + count + pluralizeBackup(count) + ".", false);
-			BackupMessenger.warning(context.getSource(), "Run /backup clear confirm to continue.", false);
+			MutableComponent message = BackupMessenger.warningText("This will delete " + count + pluralizeBackup(count) + ". ");
+			message.append(BackupMessenger.commandButton("[Confirm]", "/backup clear confirm", "Delete all backups"));
+			BackupMessenger.line(context.getSource(), message);
 			return count;
 		} catch (Exception exception) {
 			showClearError(context, exception, "Could not prepare backup cleanup: ");
@@ -140,6 +147,18 @@ public final class BackupCommand {
 			String backupName = StringArgumentType.getString(context, "backup");
 			BackupManager manager = BetterBackupsMod.manager();
 			BackupSettings settings = manager.loadSettings();
+			if (settings.shouldDelayRestore()) {
+				manager.scheduleRestore(backupName, settings.shouldStopAfterRestore(), settings.restoreDelaySeconds());
+				MutableComponent message = BackupMessenger.warningText("Restore prepared for " + backupName + ". ");
+				if (settings.shouldStopAfterRestore()) {
+					message.append(BackupMessenger.warningText("The server will stop in " + DurationParser.formatSeconds(settings.restoreDelaySeconds()) + ". "));
+				} else {
+					message.append(BackupMessenger.warningText("Restore will be prepared in " + DurationParser.formatSeconds(settings.restoreDelaySeconds()) + ". "));
+				}
+				message.append(BackupMessenger.commandButton("[Cancel]", "/backup restore cancel", "Cancel this restore"));
+				BackupMessenger.broadcastAndNotifySource(context.getSource(), message);
+				return 1;
+			}
 			if (settings.shouldStopAfterRestore()) {
 				manager.restoreAfterServerStop(context.getSource().getServer(), backupName);
 				BackupMessenger.broadcastAndNotifySource(context.getSource(), BackupMessenger.warningText("Restore prepared for " + backupName + ". The server is stopping now."));
@@ -157,6 +176,15 @@ public final class BackupCommand {
 			}
 			return 0;
 		}
+	}
+
+	private static int cancelRestore(CommandContext<CommandSourceStack> context) {
+		if (BetterBackupsMod.manager().cancelScheduledRestore()) {
+			BackupMessenger.success(context.getSource(), "Restore cancelled.", true);
+			return 1;
+		}
+		BackupMessenger.info(context.getSource(), "No restore is waiting to start.");
+		return 0;
 	}
 
 	private static int status(CommandContext<CommandSourceStack> context) {
@@ -250,6 +278,29 @@ public final class BackupCommand {
 		}
 	}
 
+	private static int setRestoreDelayEnabled(CommandContext<CommandSourceStack> context, boolean enabled) {
+		try {
+			BetterBackupsMod.manager().setRestoreDelayEnabled(enabled);
+			BackupMessenger.success(context.getSource(), "Restore delay turned " + (enabled ? "on." : "off."), true);
+			return 1;
+		} catch (Exception exception) {
+			BackupMessenger.error(context.getSource(), "Could not update restore delay: " + exception.getMessage());
+			return 0;
+		}
+	}
+
+	private static int setRestoreDelayTime(CommandContext<CommandSourceStack> context) {
+		try {
+			Duration duration = DurationParser.parseWithSeconds(StringArgumentType.getString(context, "duration"));
+			BetterBackupsMod.manager().setRestoreDelayTime(duration);
+			BackupMessenger.success(context.getSource(), "Restore delay time set to " + DurationParser.formatSeconds(duration.toSeconds()) + ".", true);
+			return 1;
+		} catch (Exception exception) {
+			BackupMessenger.error(context.getSource(), "Could not update restore delay time: " + exception.getMessage());
+			return 0;
+		}
+	}
+
 	private static int setClearRequiresConfirm(CommandContext<CommandSourceStack> context, boolean enabled) {
 		try {
 			BetterBackupsMod.manager().setClearRequiresConfirm(enabled);
@@ -272,6 +323,8 @@ public final class BackupCommand {
 			BackupMessenger.line(context.getSource(), BackupMessenger.label("Warning time: ").append(BackupMessenger.value(DurationParser.formatSeconds(settings.scheduleWarningSeconds()))));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label("Maximum backups: ").append(BackupMessenger.value(String.valueOf(settings.backupsToKeep()))));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label("Stop after restore: ").append(onOff(settings.shouldStopAfterRestore())));
+			BackupMessenger.line(context.getSource(), BackupMessenger.label("Restore delay: ").append(onOff(settings.shouldDelayRestore())));
+			BackupMessenger.line(context.getSource(), BackupMessenger.label("Restore delay time: ").append(BackupMessenger.value(DurationParser.formatSeconds(settings.restoreDelaySeconds()))));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label("Clear confirmation: ").append(onOff(settings.shouldConfirmBeforeClear())));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label("Backup folder: ").append(BackupMessenger.value(manager.resolveBackupDirectory(settings).toString())));
 			if (!settings.pendingRestore().isBlank()) {

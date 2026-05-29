@@ -9,50 +9,60 @@ public record BackupSettings(
 	Boolean clearRequiresConfirm,
 	Boolean scheduleWarningEnabled,
 	long scheduleWarningSeconds,
+	Boolean restoreDelayEnabled,
+	long restoreDelaySeconds,
 	String pendingRestore
 ) {
 	public BackupSettings(boolean scheduleEnabled, long intervalMinutes, int backupsToKeep, String backupDirectory) {
-		this(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, true, true, true, 30, "");
+		this(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, true, true, true, 30, true, 30, "");
 	}
 
 	public BackupSettings(boolean scheduleEnabled, long intervalMinutes, int backupsToKeep, String backupDirectory, String pendingRestore) {
-		this(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, true, true, true, 30, pendingRestore);
+		this(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, true, true, true, 30, true, 30, pendingRestore);
 	}
 
 	public static BackupSettings defaults() {
-		return new BackupSettings(false, 60, 10, "backups", true, true, true, 30, "");
+		return new BackupSettings(false, 60, 10, "backups", true, true, true, 30, true, 30, "");
 	}
 
 	public BackupSettings withScheduleEnabled(boolean enabled) {
-		return new BackupSettings(enabled, intervalMinutes, backupsToKeep, backupDirectory, stopAfterRestore, clearRequiresConfirm, scheduleWarningEnabled, scheduleWarningSeconds, pendingRestore);
+		return new BackupSettings(enabled, intervalMinutes, backupsToKeep, backupDirectory, stopAfterRestore, clearRequiresConfirm, scheduleWarningEnabled, scheduleWarningSeconds, restoreDelayEnabled, restoreDelaySeconds, pendingRestore);
 	}
 
 	public BackupSettings withIntervalMinutes(long minutes) {
-		return new BackupSettings(scheduleEnabled, minutes, backupsToKeep, backupDirectory, stopAfterRestore, clearRequiresConfirm, scheduleWarningEnabled, scheduleWarningSeconds, pendingRestore);
+		return new BackupSettings(scheduleEnabled, minutes, backupsToKeep, backupDirectory, stopAfterRestore, clearRequiresConfirm, scheduleWarningEnabled, scheduleWarningSeconds, restoreDelayEnabled, restoreDelaySeconds, pendingRestore);
 	}
 
 	public BackupSettings withBackupsToKeep(int count) {
-		return new BackupSettings(scheduleEnabled, intervalMinutes, count, backupDirectory, stopAfterRestore, clearRequiresConfirm, scheduleWarningEnabled, scheduleWarningSeconds, pendingRestore);
+		return new BackupSettings(scheduleEnabled, intervalMinutes, count, backupDirectory, stopAfterRestore, clearRequiresConfirm, scheduleWarningEnabled, scheduleWarningSeconds, restoreDelayEnabled, restoreDelaySeconds, pendingRestore);
 	}
 
 	public BackupSettings withStopAfterRestore(boolean enabled) {
-		return new BackupSettings(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, enabled, clearRequiresConfirm, scheduleWarningEnabled, scheduleWarningSeconds, pendingRestore);
+		return new BackupSettings(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, enabled, clearRequiresConfirm, scheduleWarningEnabled, scheduleWarningSeconds, restoreDelayEnabled, restoreDelaySeconds, pendingRestore);
 	}
 
 	public BackupSettings withClearRequiresConfirm(boolean enabled) {
-		return new BackupSettings(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, stopAfterRestore, enabled, scheduleWarningEnabled, scheduleWarningSeconds, pendingRestore);
+		return new BackupSettings(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, stopAfterRestore, enabled, scheduleWarningEnabled, scheduleWarningSeconds, restoreDelayEnabled, restoreDelaySeconds, pendingRestore);
 	}
 
 	public BackupSettings withScheduleWarningEnabled(boolean enabled) {
-		return new BackupSettings(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, stopAfterRestore, clearRequiresConfirm, enabled, scheduleWarningSeconds, pendingRestore);
+		return new BackupSettings(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, stopAfterRestore, clearRequiresConfirm, enabled, scheduleWarningSeconds, restoreDelayEnabled, restoreDelaySeconds, pendingRestore);
 	}
 
 	public BackupSettings withScheduleWarningSeconds(long seconds) {
-		return new BackupSettings(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, stopAfterRestore, clearRequiresConfirm, scheduleWarningEnabled, seconds, pendingRestore);
+		return new BackupSettings(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, stopAfterRestore, clearRequiresConfirm, scheduleWarningEnabled, seconds, restoreDelayEnabled, restoreDelaySeconds, pendingRestore);
+	}
+
+	public BackupSettings withRestoreDelayEnabled(boolean enabled) {
+		return new BackupSettings(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, stopAfterRestore, clearRequiresConfirm, scheduleWarningEnabled, scheduleWarningSeconds, enabled, restoreDelaySeconds, pendingRestore);
+	}
+
+	public BackupSettings withRestoreDelaySeconds(long seconds) {
+		return new BackupSettings(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, stopAfterRestore, clearRequiresConfirm, scheduleWarningEnabled, scheduleWarningSeconds, restoreDelayEnabled, seconds, pendingRestore);
 	}
 
 	public BackupSettings withPendingRestore(String backupName) {
-		return new BackupSettings(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, stopAfterRestore, clearRequiresConfirm, scheduleWarningEnabled, scheduleWarningSeconds, backupName);
+		return new BackupSettings(scheduleEnabled, intervalMinutes, backupsToKeep, backupDirectory, stopAfterRestore, clearRequiresConfirm, scheduleWarningEnabled, scheduleWarningSeconds, restoreDelayEnabled, restoreDelaySeconds, backupName);
 	}
 
 	public BackupSettings withoutPendingRestore() {
@@ -69,5 +79,9 @@ public record BackupSettings(
 
 	public boolean shouldWarnBeforeScheduledBackup() {
 		return scheduleWarningEnabled == null || scheduleWarningEnabled;
+	}
+
+	public boolean shouldDelayRestore() {
+		return restoreDelayEnabled == null || restoreDelayEnabled;
 	}
 }

@@ -12,6 +12,7 @@ All commands require server owner permission.
 /backup clear
 /backup clear confirm
 /backup restore <backup>
+/backup restore cancel
 /backup status
 
 /backup set schedule on
@@ -23,6 +24,9 @@ All commands require server owner permission.
 /backup set max-backups <count>
 /backup set stop-after-restore on
 /backup set stop-after-restore off
+/backup set restore-delay on
+/backup set restore-delay off
+/backup set restore-delay time <duration>
 /backup set clear-confirm on
 /backup set clear-confirm off
 /backup config

@@ -36,6 +36,7 @@ public final class BackupManager {
 	private volatile long ticksUntilScheduledBackup = Long.MAX_VALUE;
 	private volatile boolean scheduleWarningEnabled = true;
 	private volatile long scheduleWarningSeconds = 30;
+	private volatile PendingRestoreRequest pendingRestoreRequest;
 	private volatile BackupEntry latestBackup;
 
 	public BackupManager(
@@ -124,6 +125,14 @@ public final class BackupManager {
 		updateScheduleWarning(settings);
 	}
 
+	public void setRestoreDelayEnabled(boolean enabled) throws IOException {
+		settingsStore.save(settingsStore.load().withRestoreDelayEnabled(enabled));
+	}
+
+	public void setRestoreDelayTime(Duration delayTime) throws IOException {
+		settingsStore.save(settingsStore.load().withRestoreDelaySeconds(delayTime.toSeconds()));
+	}
+
 	public void setBackupsToKeep(int count) throws IOException {
 		BackupSettings settings = settingsStore.load().withBackupsToKeep(count);
 		settingsStore.save(settings);
@@ -156,6 +165,29 @@ public final class BackupManager {
 		BackupSettings settings = settingsStore.load();
 		requireBackup(backupName);
 		settingsStore.save(settings.withPendingRestore(backupName));
+	}
+
+	public PendingRestoreRequest scheduleRestore(String backupName, boolean stopAfterRestore, long delaySeconds) throws IOException {
+		requireBackup(backupName);
+		if (pendingRestoreRequest != null) {
+			throw new RestoreAlreadyRunningException();
+		}
+		if (restoreRunning.get()) {
+			throw new RestoreAlreadyRunningException();
+		}
+		PendingRestoreRequest request = new PendingRestoreRequest(backupName, stopAfterRestore, delaySeconds * 20);
+		pendingRestoreRequest = request;
+		return request;
+	}
+
+	public boolean cancelScheduledRestore() {
+		PendingRestoreRequest request = pendingRestoreRequest;
+		if (request == null) {
+			return false;
+		}
+		request.cancel();
+		pendingRestoreRequest = null;
+		return true;
 	}
 
 	public void restoreAfterServerStop(MinecraftServer server, String backupName) throws IOException {
@@ -198,6 +230,9 @@ public final class BackupManager {
 	}
 
 	public void tick(MinecraftServer server) {
+		if (tickRestore(server)) {
+			return;
+		}
 		if (ticksUntilScheduledBackup == Long.MAX_VALUE) {
 			return;
 		}
@@ -232,6 +267,28 @@ public final class BackupManager {
 			logger.error("Could not read backup settings", exception);
 			ticksUntilScheduledBackup = minutesToTicks(1);
 		}
+	}
+
+	private boolean tickRestore(MinecraftServer server) {
+		PendingRestoreRequest request = pendingRestoreRequest;
+		if (request == null || !request.tick()) {
+			return false;
+		}
+		pendingRestoreRequest = null;
+		try {
+			if (request.shouldStopAfterRestore()) {
+				restoreAfterServerStop(server, request.backupName());
+				BackupMessenger.broadcast(server, BackupMessenger.warningText("Restore is starting for " + request.backupName() + ". The server is stopping now."));
+				server.halt(false);
+			} else {
+				setPendingRestore(request.backupName());
+				BackupMessenger.broadcast(server, BackupMessenger.warningText("Restore prepared for " + request.backupName() + ". Stop and start the server to restore."));
+			}
+		} catch (Exception exception) {
+			logger.error("Could not start delayed restore", exception);
+			BackupMessenger.broadcast(server, BackupMessenger.errorText("Could not start restore: " + exception.getMessage()));
+		}
+		return true;
 	}
 
 	public boolean isBackupRunning() {
