@@ -25,6 +25,8 @@ class BackupSettingsStoreTest {
 		assertEquals("backups", settings.backupDirectory());
 		assertTrue(settings.shouldStopAfterRestore());
 		assertTrue(settings.shouldConfirmBeforeClear());
+		assertTrue(settings.shouldWarnBeforeScheduledBackup());
+		assertEquals(30, settings.scheduleWarningSeconds());
 		assertTrue(tempDir.resolve("better-backups.json").toString().endsWith("better-backups.json"));
 	}
 
@@ -75,5 +77,27 @@ class BackupSettingsStoreTest {
 		BackupSettings settings = store.load();
 
 		assertTrue(settings.shouldConfirmBeforeClear());
+	}
+
+	@Test
+	void missingScheduleWarningSettingsDefaultToEnabledThirtySeconds() throws Exception {
+		Path config = tempDir.resolve("better-backups.json");
+		Files.writeString(config, """
+			{
+			  "scheduleEnabled": false,
+			  "intervalMinutes": 60,
+			  "backupsToKeep": 10,
+			  "backupDirectory": "backups",
+			  "stopAfterRestore": true,
+			  "clearRequiresConfirm": true,
+			  "pendingRestore": ""
+			}
+			""");
+		BackupSettingsStore store = new BackupSettingsStore(config);
+
+		BackupSettings settings = store.load();
+
+		assertTrue(settings.shouldWarnBeforeScheduledBackup());
+		assertEquals(30, settings.scheduleWarningSeconds());
 	}
 }

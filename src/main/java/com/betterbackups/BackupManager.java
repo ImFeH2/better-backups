@@ -31,8 +31,11 @@ public final class BackupManager {
 	});
 	private final AtomicBoolean backupRunning = new AtomicBoolean(false);
 	private final AtomicBoolean restoreRunning = new AtomicBoolean(false);
+	private final ScheduledBackupWarningState scheduledBackupWarningState = new ScheduledBackupWarningState();
 
 	private volatile long ticksUntilScheduledBackup = Long.MAX_VALUE;
+	private volatile boolean scheduleWarningEnabled = true;
+	private volatile long scheduleWarningSeconds = 30;
 	private volatile BackupEntry latestBackup;
 
 	public BackupManager(
@@ -109,6 +112,18 @@ public final class BackupManager {
 		resetSchedule(settings);
 	}
 
+	public void setScheduleWarningEnabled(boolean enabled) throws IOException {
+		BackupSettings settings = settingsStore.load().withScheduleWarningEnabled(enabled);
+		settingsStore.save(settings);
+		updateScheduleWarning(settings);
+	}
+
+	public void setScheduleWarningTime(Duration warningTime) throws IOException {
+		BackupSettings settings = settingsStore.load().withScheduleWarningSeconds(warningTime.toSeconds());
+		settingsStore.save(settings);
+		updateScheduleWarning(settings);
+	}
+
 	public void setBackupsToKeep(int count) throws IOException {
 		BackupSettings settings = settingsStore.load().withBackupsToKeep(count);
 		settingsStore.save(settings);
@@ -173,8 +188,10 @@ public final class BackupManager {
 	}
 
 	public void resetSchedule(BackupSettings settings) {
+		updateScheduleWarning(settings);
 		if (settings.scheduleEnabled()) {
 			ticksUntilScheduledBackup = minutesToTicks(settings.intervalMinutes());
+			scheduledBackupWarningState.reset();
 		} else {
 			ticksUntilScheduledBackup = Long.MAX_VALUE;
 		}
@@ -187,6 +204,9 @@ public final class BackupManager {
 		if (ticksUntilScheduledBackup > 0) {
 			ticksUntilScheduledBackup--;
 		}
+		if (scheduleWarningEnabled && scheduledBackupWarningState.shouldWarn(ticksUntilScheduledBackup, scheduleWarningSeconds)) {
+			BackupMessenger.broadcast(server, BackupMessenger.warningText("Scheduled backup will start in " + formatTicks(ticksUntilScheduledBackup) + "."));
+		}
 		if (ticksUntilScheduledBackup > 0) {
 			return;
 		}
@@ -198,7 +218,9 @@ public final class BackupManager {
 				return;
 			}
 
+			updateScheduleWarning(settings);
 			ticksUntilScheduledBackup = minutesToTicks(settings.intervalMinutes());
+			scheduledBackupWarningState.reset();
 			startBackup(server).whenComplete((entry, throwable) -> {
 				if (throwable == null) {
 					logger.info("Scheduled backup completed: {}", entry.name());
@@ -250,6 +272,16 @@ public final class BackupManager {
 
 	private long minutesToTicks(long minutes) {
 		return Duration.ofMinutes(minutes).toSeconds() * 20;
+	}
+
+	private void updateScheduleWarning(BackupSettings settings) {
+		scheduleWarningEnabled = settings.shouldWarnBeforeScheduledBackup();
+		scheduleWarningSeconds = settings.scheduleWarningSeconds();
+	}
+
+	private String formatTicks(long ticks) {
+		long seconds = Math.max(1, (ticks + 19) / 20);
+		return DurationParser.formatSeconds(seconds);
 	}
 
 	public static Throwable unwrap(Throwable throwable) {

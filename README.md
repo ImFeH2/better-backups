@@ -17,6 +17,9 @@ All commands require server owner permission.
 /backup set schedule on
 /backup set schedule off
 /backup set schedule every <duration>
+/backup set schedule warning on
+/backup set schedule warning off
+/backup set schedule warning before <duration>
 /backup set max-backups <count>
 /backup set stop-after-restore on
 /backup set stop-after-restore off
@@ -25,12 +28,13 @@ All commands require server owner permission.
 /backup config
 ```
 
-Duration values use `m`, `h`, or `d`.
+Schedule interval values use `m`, `h`, or `d`. Warning time values also support `s`.
 
 ```text
 /backup set schedule every 30m
 /backup set schedule every 2h
 /backup set schedule every 1d
+/backup set schedule warning before 30s
 ```
 
 ## Backups

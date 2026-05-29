@@ -54,7 +54,12 @@ public final class BackupCommand {
 					.then(literal("on").executes(context -> setScheduleEnabled(context, true)))
 					.then(literal("off").executes(context -> setScheduleEnabled(context, false)))
 					.then(literal("every")
-						.then(argument("duration", StringArgumentType.word()).executes(BackupCommand::setScheduleInterval))))
+						.then(argument("duration", StringArgumentType.word()).executes(BackupCommand::setScheduleInterval)))
+					.then(literal("warning")
+						.then(literal("on").executes(context -> setScheduleWarningEnabled(context, true)))
+						.then(literal("off").executes(context -> setScheduleWarningEnabled(context, false)))
+						.then(literal("before")
+							.then(argument("duration", StringArgumentType.word()).executes(BackupCommand::setScheduleWarningTime)))))
 				.then(literal("max-backups")
 					.then(argument("count", IntegerArgumentType.integer(1)).executes(BackupCommand::setBackupsToKeep)))
 				.then(literal("stop-after-restore")
@@ -199,6 +204,29 @@ public final class BackupCommand {
 		}
 	}
 
+	private static int setScheduleWarningEnabled(CommandContext<CommandSourceStack> context, boolean enabled) {
+		try {
+			BetterBackupsMod.manager().setScheduleWarningEnabled(enabled);
+			BackupMessenger.success(context.getSource(), "Schedule warning turned " + (enabled ? "on." : "off."), true);
+			return 1;
+		} catch (Exception exception) {
+			BackupMessenger.error(context.getSource(), "Could not update schedule warning: " + exception.getMessage());
+			return 0;
+		}
+	}
+
+	private static int setScheduleWarningTime(CommandContext<CommandSourceStack> context) {
+		try {
+			Duration duration = DurationParser.parseWithSeconds(StringArgumentType.getString(context, "duration"));
+			BetterBackupsMod.manager().setScheduleWarningTime(duration);
+			BackupMessenger.success(context.getSource(), "Schedule warning time set to " + DurationParser.formatSeconds(duration.toSeconds()) + ".", true);
+			return 1;
+		} catch (Exception exception) {
+			BackupMessenger.error(context.getSource(), "Could not update schedule warning time: " + exception.getMessage());
+			return 0;
+		}
+	}
+
 	private static int setBackupsToKeep(CommandContext<CommandSourceStack> context) {
 		try {
 			int count = IntegerArgumentType.getInteger(context, "count");
@@ -240,6 +268,8 @@ public final class BackupCommand {
 			BackupMessenger.info(context.getSource(), "Backup config:");
 			BackupMessenger.line(context.getSource(), BackupMessenger.label("Scheduled backups: ").append(onOff(settings.scheduleEnabled())));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label("Backup interval: ").append(BackupMessenger.value(DurationParser.formatMinutes(settings.intervalMinutes()))));
+			BackupMessenger.line(context.getSource(), BackupMessenger.label("Schedule warning: ").append(onOff(settings.shouldWarnBeforeScheduledBackup())));
+			BackupMessenger.line(context.getSource(), BackupMessenger.label("Warning time: ").append(BackupMessenger.value(DurationParser.formatSeconds(settings.scheduleWarningSeconds()))));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label("Maximum backups: ").append(BackupMessenger.value(String.valueOf(settings.backupsToKeep()))));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label("Stop after restore: ").append(onOff(settings.shouldStopAfterRestore())));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label("Clear confirmation: ").append(onOff(settings.shouldConfirmBeforeClear())));
