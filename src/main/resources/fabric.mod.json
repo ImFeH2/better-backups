@@ -1,0 +1,23 @@
+{
+	"schemaVersion": 1,
+	"id": "better-backups",
+	"version": "${version}",
+	"name": "Better Backups",
+	"description": "A better backup mod for Minecraft worlds.",
+	"authors": [
+		"ImFeH2 <i@feh2.im>"
+	],
+	"license": "Apache-2.0",
+	"environment": "server",
+	"entrypoints": {
+		"main": [
+			"com.betterbackups.BetterBackupsMod"
+		]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.2",
+		"minecraft": "~26.1.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
