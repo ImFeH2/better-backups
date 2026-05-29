@@ -29,9 +29,14 @@ jobs:
       - name: Build
         run: ./gradlew build
 
+      - name: Collect release artifact
+        run: |
+          mkdir -p release
+          VERSION="${GITHUB_REF_NAME#v}"
+          cp "build/libs/better-backups-${VERSION}.jar" release/
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            build/libs/better-backups-*.jar
-            !build/libs/*-sources.jar
+          fail_on_unmatched_files: true
+          files: release/*.jar
