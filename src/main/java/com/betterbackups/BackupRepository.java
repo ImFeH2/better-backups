@@ -43,6 +43,14 @@ public final class BackupRepository {
 		}
 	}
 
+	public int clearBackups() throws IOException {
+		List<BackupEntry> entries = listBackups();
+		for (BackupEntry entry : entries) {
+			Files.deleteIfExists(entry.path());
+		}
+		return entries.size();
+	}
+
 	private BackupEntry toEntry(Path path) {
 		try {
 			String fileName = path.getFileName().toString();

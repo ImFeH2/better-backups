@@ -41,6 +41,9 @@ public final class BackupCommand {
 			.requires(hasPermission(Commands.LEVEL_OWNERS))
 			.then(literal("start").executes(BackupCommand::createBackup))
 			.then(literal("list").executes(BackupCommand::listBackups))
+			.then(literal("clear")
+				.executes(BackupCommand::clearBackups)
+				.then(literal("confirm").executes(BackupCommand::confirmClearBackups)))
 			.then(literal("restore")
 				.then(argument("backup", StringArgumentType.word())
 					.suggests(BACKUP_SUGGESTIONS)
@@ -56,7 +59,10 @@ public final class BackupCommand {
 					.then(argument("count", IntegerArgumentType.integer(1)).executes(BackupCommand::setBackupsToKeep)))
 				.then(literal("stop-after-restore")
 					.then(literal("on").executes(context -> setStopAfterRestore(context, true)))
-					.then(literal("off").executes(context -> setStopAfterRestore(context, false)))))
+					.then(literal("off").executes(context -> setStopAfterRestore(context, false))))
+				.then(literal("clear-confirm")
+					.then(literal("on").executes(context -> setClearRequiresConfirm(context, true)))
+					.then(literal("off").executes(context -> setClearRequiresConfirm(context, false)))))
 			.then(literal("config").executes(BackupCommand::config)));
 	}
 
@@ -94,6 +100,34 @@ public final class BackupCommand {
 			BackupMessenger.error(context.getSource(), "Could not list backups: " + exception.getMessage());
 			return 0;
 		}
+	}
+
+	private static int clearBackups(CommandContext<CommandSourceStack> context) {
+		try {
+			BackupManager manager = BetterBackupsMod.manager();
+			BackupSettings settings = manager.loadSettings();
+			manager.requireCanClearBackups();
+			if (!settings.shouldConfirmBeforeClear()) {
+				return deleteBackups(context);
+			}
+
+			int count = manager.listBackups().size();
+			if (count == 0) {
+				BackupMessenger.info(context.getSource(), "No backups found.");
+				return 0;
+			}
+
+			BackupMessenger.warning(context.getSource(), "This will delete " + count + pluralizeBackup(count) + ".", false);
+			BackupMessenger.warning(context.getSource(), "Run /backup clear confirm to continue.", false);
+			return count;
+		} catch (Exception exception) {
+			showClearError(context, exception, "Could not prepare backup cleanup: ");
+			return 0;
+		}
+	}
+
+	private static int confirmClearBackups(CommandContext<CommandSourceStack> context) {
+		return deleteBackups(context);
 	}
 
 	private static int restoreBackup(CommandContext<CommandSourceStack> context) {
@@ -188,6 +222,17 @@ public final class BackupCommand {
 		}
 	}
 
+	private static int setClearRequiresConfirm(CommandContext<CommandSourceStack> context, boolean enabled) {
+		try {
+			BetterBackupsMod.manager().setClearRequiresConfirm(enabled);
+			BackupMessenger.success(context.getSource(), "Clear confirmation turned " + (enabled ? "on." : "off."), true);
+			return 1;
+		} catch (Exception exception) {
+			BackupMessenger.error(context.getSource(), "Could not update cleanup setting: " + exception.getMessage());
+			return 0;
+		}
+	}
+
 	private static int config(CommandContext<CommandSourceStack> context) {
 		try {
 			BackupManager manager = BetterBackupsMod.manager();
@@ -197,6 +242,7 @@ public final class BackupCommand {
 			BackupMessenger.line(context.getSource(), BackupMessenger.label("Backup interval: ").append(BackupMessenger.value(DurationParser.formatMinutes(settings.intervalMinutes()))));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label("Maximum backups: ").append(BackupMessenger.value(String.valueOf(settings.backupsToKeep()))));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label("Stop after restore: ").append(onOff(settings.shouldStopAfterRestore())));
+			BackupMessenger.line(context.getSource(), BackupMessenger.label("Clear confirmation: ").append(onOff(settings.shouldConfirmBeforeClear())));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label("Backup folder: ").append(BackupMessenger.value(manager.resolveBackupDirectory(settings).toString())));
 			if (!settings.pendingRestore().isBlank()) {
 				BackupMessenger.line(context.getSource(), BackupMessenger.label("Restore on next start: ").append(BackupMessenger.warningText(settings.pendingRestore())));
@@ -210,6 +256,35 @@ public final class BackupCommand {
 
 	private static MutableComponent onOff(boolean enabled) {
 		return enabled ? BackupMessenger.successText("On") : BackupMessenger.muted("Off");
+	}
+
+	private static int deleteBackups(CommandContext<CommandSourceStack> context) {
+		try {
+			int deleted = BetterBackupsMod.manager().clearBackups();
+			if (deleted == 0) {
+				BackupMessenger.info(context.getSource(), "No backups found.");
+			} else {
+				BackupMessenger.success(context.getSource(), "Deleted " + deleted + pluralizeBackup(deleted) + ".", true);
+			}
+			return deleted;
+		} catch (Exception exception) {
+			showClearError(context, exception, "Could not clear backups: ");
+			return 0;
+		}
+	}
+
+	private static void showClearError(CommandContext<CommandSourceStack> context, Exception exception, String fallbackPrefix) {
+		if (exception instanceof BackupManager.BackupAlreadyRunningException) {
+			BackupMessenger.error(context.getSource(), "A backup is already running.");
+		} else if (exception instanceof BackupManager.RestoreAlreadyRunningException) {
+			BackupMessenger.error(context.getSource(), "A restore is already running.");
+		} else {
+			BackupMessenger.error(context.getSource(), fallbackPrefix + exception.getMessage());
+		}
+	}
+
+	private static String pluralizeBackup(int count) {
+		return count == 1 ? " backup" : " backups";
 	}
 
 	private static String formatBytes(long bytes) {

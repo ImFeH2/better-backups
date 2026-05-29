@@ -68,4 +68,21 @@ class BackupArchiveServiceTest {
 		assertEquals(List.of("2026-05-29_12-00-00", "2026-05-29_11-00-00"), entries.stream().map(BackupEntry::name).toList());
 		assertFalse(Files.exists(backupDir.resolve("2026-05-29_10-00-00.zip")));
 	}
+
+	@Test
+	void clearsOnlyBackupArchives() throws Exception {
+		Path backupDir = tempDir.resolve("backups");
+		Files.createDirectories(backupDir);
+		Files.writeString(backupDir.resolve("2026-05-29_10-00-00.zip"), "old");
+		Files.writeString(backupDir.resolve("2026-05-29_11-00-00.zip"), "new");
+		Files.writeString(backupDir.resolve("notes.txt"), "keep");
+		BackupRepository repository = new BackupRepository(backupDir);
+
+		int deleted = repository.clearBackups();
+
+		assertEquals(2, deleted);
+		assertTrue(repository.listBackups().isEmpty());
+		assertTrue(Files.exists(backupDir));
+		assertEquals("keep", Files.readString(backupDir.resolve("notes.txt")));
+	}
 }

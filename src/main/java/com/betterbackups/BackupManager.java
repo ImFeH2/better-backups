@@ -119,6 +119,24 @@ public final class BackupManager {
 		settingsStore.save(settingsStore.load().withStopAfterRestore(enabled));
 	}
 
+	public void setClearRequiresConfirm(boolean enabled) throws IOException {
+		settingsStore.save(settingsStore.load().withClearRequiresConfirm(enabled));
+	}
+
+	public int clearBackups() throws IOException {
+		requireCanClearBackups();
+		return new BackupRepository(resolveBackupDirectory(settingsStore.load())).clearBackups();
+	}
+
+	public void requireCanClearBackups() {
+		if (backupRunning.get()) {
+			throw new BackupAlreadyRunningException();
+		}
+		if (restoreRunning.get()) {
+			throw new RestoreAlreadyRunningException();
+		}
+	}
+
 	public void setPendingRestore(String backupName) throws IOException {
 		BackupSettings settings = settingsStore.load();
 		requireBackup(backupName);

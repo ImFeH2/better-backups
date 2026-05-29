@@ -46,7 +46,7 @@ public final class BackupSettingsStore {
 		int backupsToKeep = settings.backupsToKeep() > 0 ? settings.backupsToKeep() : defaults.backupsToKeep();
 		String backupDirectory = isBlank(settings.backupDirectory()) ? defaults.backupDirectory() : settings.backupDirectory();
 		String pendingRestore = settings.pendingRestore() == null ? "" : settings.pendingRestore();
-		return new BackupSettings(settings.scheduleEnabled(), intervalMinutes, backupsToKeep, backupDirectory, settings.shouldStopAfterRestore(), pendingRestore);
+		return new BackupSettings(settings.scheduleEnabled(), intervalMinutes, backupsToKeep, backupDirectory, settings.shouldStopAfterRestore(), settings.shouldConfirmBeforeClear(), pendingRestore);
 	}
 
 	private boolean isBlank(String value) {

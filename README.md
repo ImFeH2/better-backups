@@ -9,6 +9,8 @@ All commands require server owner permission.
 ```text
 /backup start
 /backup list
+/backup clear
+/backup clear confirm
 /backup restore <backup>
 /backup status
 
@@ -18,6 +20,8 @@ All commands require server owner permission.
 /backup set max-backups <count>
 /backup set stop-after-restore on
 /backup set stop-after-restore off
+/backup set clear-confirm on
+/backup set clear-confirm off
 /backup config
 ```
 
