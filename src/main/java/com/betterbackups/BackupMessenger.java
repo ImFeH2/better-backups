@@ -7,7 +7,7 @@ import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.MinecraftServer;
 
 public final class BackupMessenger {
-	private static final int PREFIX_COLOR = 0x5B23DA;
+	private static final int PREFIX_COLOR = 0x38BDF8;
 
 	private BackupMessenger() {
 	}
