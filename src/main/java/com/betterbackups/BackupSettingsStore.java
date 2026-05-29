@@ -47,8 +47,9 @@ public final class BackupSettingsStore {
 		String backupDirectory = isBlank(settings.backupDirectory()) ? defaults.backupDirectory() : settings.backupDirectory();
 		long scheduleWarningSeconds = settings.scheduleWarningSeconds() > 0 ? settings.scheduleWarningSeconds() : defaults.scheduleWarningSeconds();
 		long restoreDelaySeconds = settings.restoreDelaySeconds() > 0 ? settings.restoreDelaySeconds() : defaults.restoreDelaySeconds();
+		String language = BackupTranslations.normalizeLanguage(settings.language());
 		String pendingRestore = settings.pendingRestore() == null ? "" : settings.pendingRestore();
-		return new BackupSettings(settings.scheduleEnabled(), intervalMinutes, backupsToKeep, backupDirectory, settings.shouldStopAfterRestore(), settings.shouldConfirmBeforeClear(), settings.shouldWarnBeforeScheduledBackup(), scheduleWarningSeconds, settings.shouldDelayRestore(), restoreDelaySeconds, pendingRestore);
+		return new BackupSettings(settings.scheduleEnabled(), intervalMinutes, backupsToKeep, backupDirectory, settings.shouldStopAfterRestore(), settings.shouldConfirmBeforeClear(), settings.shouldWarnBeforeScheduledBackup(), scheduleWarningSeconds, settings.shouldDelayRestore(), restoreDelaySeconds, language, pendingRestore);
 	}
 
 	private boolean isBlank(String value) {

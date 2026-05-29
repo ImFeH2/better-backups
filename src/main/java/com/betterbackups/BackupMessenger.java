@@ -18,16 +18,32 @@ public final class BackupMessenger {
 		send(source, text(message, ChatFormatting.WHITE), false);
 	}
 
+	public static void info(CommandSourceStack source, BackupSettings settings, String key, Object... arguments) {
+		info(source, t(settings, key, arguments));
+	}
+
 	public static void success(CommandSourceStack source, String message, boolean broadcastToOps) {
 		send(source, text(message, ChatFormatting.GREEN), broadcastToOps);
+	}
+
+	public static void success(CommandSourceStack source, BackupSettings settings, String key, boolean broadcastToOps, Object... arguments) {
+		success(source, t(settings, key, arguments), broadcastToOps);
 	}
 
 	public static void warning(CommandSourceStack source, String message, boolean broadcastToOps) {
 		send(source, text(message, ChatFormatting.GOLD), broadcastToOps);
 	}
 
+	public static void warning(CommandSourceStack source, BackupSettings settings, String key, boolean broadcastToOps, Object... arguments) {
+		warning(source, t(settings, key, arguments), broadcastToOps);
+	}
+
 	public static void error(CommandSourceStack source, String message) {
 		source.sendFailure(message(text(message, ChatFormatting.RED)));
+	}
+
+	public static void error(CommandSourceStack source, BackupSettings settings, String key, Object... arguments) {
+		error(source, t(settings, key, arguments));
 	}
 
 	public static void line(CommandSourceStack source, Component body) {
@@ -49,6 +65,10 @@ public final class BackupMessenger {
 		return Component.literal(value).withStyle(formatting);
 	}
 
+	public static MutableComponent text(BackupSettings settings, String key, ChatFormatting formatting, Object... arguments) {
+		return text(t(settings, key, arguments), formatting);
+	}
+
 	public static MutableComponent value(String value) {
 		return text(value, ChatFormatting.AQUA);
 	}
@@ -61,16 +81,32 @@ public final class BackupMessenger {
 		return text(value, ChatFormatting.GREEN);
 	}
 
+	public static MutableComponent successText(BackupSettings settings, String key, Object... arguments) {
+		return text(settings, key, ChatFormatting.GREEN, arguments);
+	}
+
 	public static MutableComponent warningText(String value) {
 		return text(value, ChatFormatting.GOLD);
+	}
+
+	public static MutableComponent warningText(BackupSettings settings, String key, Object... arguments) {
+		return text(settings, key, ChatFormatting.GOLD, arguments);
 	}
 
 	public static MutableComponent errorText(String value) {
 		return text(value, ChatFormatting.RED);
 	}
 
+	public static MutableComponent errorText(BackupSettings settings, String key, Object... arguments) {
+		return text(settings, key, ChatFormatting.RED, arguments);
+	}
+
 	public static MutableComponent label(String value) {
 		return text(value, ChatFormatting.WHITE);
+	}
+
+	public static MutableComponent label(BackupSettings settings, String key) {
+		return text(settings, key, ChatFormatting.WHITE);
 	}
 
 	public static MutableComponent commandButton(String label, String command, String hoverText) {
@@ -79,6 +115,14 @@ public final class BackupMessenger {
 			.withStyle(style -> style
 				.withClickEvent(new ClickEvent.RunCommand(command))
 				.withHoverEvent(new HoverEvent.ShowText(Component.literal(hoverText))));
+	}
+
+	public static MutableComponent commandButton(BackupSettings settings, String labelKey, String command, String hoverKey) {
+		return commandButton(t(settings, labelKey), command, t(settings, hoverKey));
+	}
+
+	public static String t(BackupSettings settings, String key, Object... arguments) {
+		return BackupTranslations.translate(settings.language(), key, arguments);
 	}
 
 	private static void send(CommandSourceStack source, Component body, boolean broadcastToOps) {

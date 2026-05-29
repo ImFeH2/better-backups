@@ -29,6 +29,7 @@ All commands require server owner permission.
 /backup set restore-delay time <duration>
 /backup set clear-confirm on
 /backup set clear-confirm off
+/backup set language <language>
 /backup config
 ```
 
@@ -40,6 +41,8 @@ Schedule interval values use `m`, `h`, or `d`. Warning time values also support 
 /backup set schedule every 1d
 /backup set schedule warning before 30s
 ```
+
+Supported languages are `en_us` and `zh_cn`.
 
 ## Backups
 

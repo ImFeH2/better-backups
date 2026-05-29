@@ -29,6 +29,7 @@ class BackupSettingsStoreTest {
 		assertEquals(30, settings.scheduleWarningSeconds());
 		assertTrue(settings.shouldDelayRestore());
 		assertEquals(30, settings.restoreDelaySeconds());
+		assertEquals("en_us", settings.language());
 		assertTrue(tempDir.resolve("better-backups.json").toString().endsWith("better-backups.json"));
 	}
 
@@ -125,5 +126,56 @@ class BackupSettingsStoreTest {
 
 		assertTrue(settings.shouldDelayRestore());
 		assertEquals(30, settings.restoreDelaySeconds());
+	}
+
+	@Test
+	void missingLanguageDefaultsToEnglish() throws Exception {
+		Path config = tempDir.resolve("better-backups.json");
+		Files.writeString(config, """
+			{
+			  "scheduleEnabled": false,
+			  "intervalMinutes": 60,
+			  "backupsToKeep": 10,
+			  "backupDirectory": "backups",
+			  "stopAfterRestore": true,
+			  "clearRequiresConfirm": true,
+			  "scheduleWarningEnabled": true,
+			  "scheduleWarningSeconds": 30,
+			  "restoreDelayEnabled": true,
+			  "restoreDelaySeconds": 30,
+			  "pendingRestore": ""
+			}
+			""");
+		BackupSettingsStore store = new BackupSettingsStore(config);
+
+		BackupSettings settings = store.load();
+
+		assertEquals("en_us", settings.language());
+	}
+
+	@Test
+	void unsupportedLanguageDefaultsToEnglish() throws Exception {
+		Path config = tempDir.resolve("better-backups.json");
+		Files.writeString(config, """
+			{
+			  "scheduleEnabled": false,
+			  "intervalMinutes": 60,
+			  "backupsToKeep": 10,
+			  "backupDirectory": "backups",
+			  "stopAfterRestore": true,
+			  "clearRequiresConfirm": true,
+			  "scheduleWarningEnabled": true,
+			  "scheduleWarningSeconds": 30,
+			  "restoreDelayEnabled": true,
+			  "restoreDelaySeconds": 30,
+			  "language": "missing",
+			  "pendingRestore": ""
+			}
+			""");
+		BackupSettingsStore store = new BackupSettingsStore(config);
+
+		BackupSettings settings = store.load();
+
+		assertEquals("en_us", settings.language());
 	}
 }

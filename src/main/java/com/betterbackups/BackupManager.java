@@ -147,6 +147,10 @@ public final class BackupManager {
 		settingsStore.save(settingsStore.load().withClearRequiresConfirm(enabled));
 	}
 
+	public void setLanguage(String language) throws IOException {
+		settingsStore.save(settingsStore.load().withLanguage(language));
+	}
+
 	public int clearBackups() throws IOException {
 		requireCanClearBackups();
 		return new BackupRepository(resolveBackupDirectory(settingsStore.load())).clearBackups();
@@ -239,9 +243,7 @@ public final class BackupManager {
 		if (ticksUntilScheduledBackup > 0) {
 			ticksUntilScheduledBackup--;
 		}
-		if (scheduleWarningEnabled && scheduledBackupWarningState.shouldWarn(ticksUntilScheduledBackup, scheduleWarningSeconds)) {
-			BackupMessenger.broadcast(server, BackupMessenger.warningText("Scheduled backup will start in " + formatTicks(ticksUntilScheduledBackup) + "."));
-		}
+		showScheduledBackupWarning(server);
 		if (ticksUntilScheduledBackup > 0) {
 			return;
 		}
@@ -276,17 +278,19 @@ public final class BackupManager {
 		}
 		pendingRestoreRequest = null;
 		try {
+			BackupSettings settings = settingsStore.load();
 			if (request.shouldStopAfterRestore()) {
 				restoreAfterServerStop(server, request.backupName());
-				BackupMessenger.broadcast(server, BackupMessenger.warningText("Restore is starting for " + request.backupName() + ". The server is stopping now."));
+				BackupMessenger.broadcast(server, BackupMessenger.warningText(settings, "restore.starting.stop", request.backupName()));
 				server.halt(false);
 			} else {
 				setPendingRestore(request.backupName());
-				BackupMessenger.broadcast(server, BackupMessenger.warningText("Restore prepared for " + request.backupName() + ". Stop and start the server to restore."));
+				BackupMessenger.broadcast(server, BackupMessenger.warningText(settings, "restore.prepared.manualRestart", request.backupName()));
 			}
 		} catch (Exception exception) {
 			logger.error("Could not start delayed restore", exception);
-			BackupMessenger.broadcast(server, BackupMessenger.errorText("Could not start restore: " + exception.getMessage()));
+			BackupSettings settings = loadSettingsOrDefault();
+			BackupMessenger.broadcast(server, BackupMessenger.errorText(settings, "restore.startFailed", exception.getMessage()));
 		}
 		return true;
 	}
@@ -336,9 +340,26 @@ public final class BackupManager {
 		scheduleWarningSeconds = settings.scheduleWarningSeconds();
 	}
 
-	private String formatTicks(long ticks) {
+	private void showScheduledBackupWarning(MinecraftServer server) {
+		if (!scheduleWarningEnabled || !scheduledBackupWarningState.shouldWarn(ticksUntilScheduledBackup, scheduleWarningSeconds)) {
+			return;
+		}
+		BackupSettings settings = loadSettingsOrDefault();
+		BackupMessenger.broadcast(server, BackupMessenger.warningText(settings, "schedule.warning.starting", formatTicks(settings, ticksUntilScheduledBackup)));
+	}
+
+	private String formatTicks(BackupSettings settings, long ticks) {
 		long seconds = Math.max(1, (ticks + 19) / 20);
-		return DurationParser.formatSeconds(seconds);
+		return BackupTranslations.formatSeconds(settings.language(), seconds);
+	}
+
+	private BackupSettings loadSettingsOrDefault() {
+		try {
+			return settingsStore.load();
+		} catch (IOException exception) {
+			logger.error("Could not read backup settings", exception);
+			return BackupSettings.defaults();
+		}
 	}
 
 	public static Throwable unwrap(Throwable throwable) {
