@@ -22,7 +22,7 @@ All commands require server owner permission.
 ## Common Commands
 
 ```text
-/backup menu               Open the clickable backup menu.
+/backup                    Open the clickable backup menu.
 /backup start              Create a backup now.
 /backup list               Show available backups.
 /backup restore <backup>   Restore a backup.

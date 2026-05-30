@@ -50,6 +50,7 @@ public final class BackupCommand {
 	public static void register(CommandDispatcher<CommandSourceStack> dispatcher, CommandBuildContext registryAccess, Commands.CommandSelection environment) {
 		dispatcher.register(literal("backup")
 			.requires(hasPermission(Commands.LEVEL_OWNERS))
+			.executes(BackupCommand::menu)
 			.then(literal("start").executes(BackupCommand::createBackup))
 			.then(literal("list").executes(BackupCommand::listBackups))
 			.then(literal("clear")
