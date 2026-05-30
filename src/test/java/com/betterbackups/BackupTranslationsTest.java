@@ -9,11 +9,13 @@ class BackupTranslationsTest {
 	@Test
 	void translatesEnglishMessagesWithArguments() {
 		assertEquals("Backup completed: 2026-05-30_12-00-00+0800", BackupTranslations.translate("en_us", "backup.completed", "2026-05-30_12-00-00+0800"));
+		assertEquals("Scheduled backup completed: 2026-05-30_12-00-00+0800", BackupTranslations.translate("en_us", "schedule.backup.completed", "2026-05-30_12-00-00+0800"));
 	}
 
 	@Test
 	void translatesChineseMessagesWithArguments() {
 		assertEquals("备份完成：2026-05-30_12-00-00+0800", BackupTranslations.translate("zh_cn", "backup.completed", "2026-05-30_12-00-00+0800"));
+		assertEquals("定时备份完成：2026-05-30_12-00-00+0800", BackupTranslations.translate("zh_cn", "schedule.backup.completed", "2026-05-30_12-00-00+0800"));
 	}
 
 	@Test

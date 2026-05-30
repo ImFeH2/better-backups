@@ -306,13 +306,7 @@ public final class BackupManager {
 			updateScheduleWarning(settings);
 			ticksUntilScheduledBackup = minutesToTicks(settings.intervalMinutes());
 			scheduledBackupWarningState.reset();
-			startBackup(server).whenComplete((entry, throwable) -> {
-				if (throwable == null) {
-					logger.info("Scheduled backup completed: {}", entry.name());
-				} else if (!(throwable instanceof BackupAlreadyRunningException)) {
-					logger.error("Scheduled backup failed", unwrap(throwable));
-				}
-			});
+			startScheduledBackup(server, settings);
 		} catch (IOException exception) {
 			logger.error("Could not read backup settings", exception);
 			ticksUntilScheduledBackup = minutesToTicks(1);
@@ -468,13 +462,7 @@ public final class BackupManager {
 				return;
 			}
 			realtimeBackupSchedule.rescheduleAfterRun(scheduledRunMillis, settings.intervalMinutes());
-			startBackup(server).whenComplete((entry, throwable) -> {
-				if (throwable == null) {
-					logger.info("Scheduled backup completed: {}", entry.name());
-				} else if (!(unwrap(throwable) instanceof BackupAlreadyRunningException)) {
-					logger.error("Scheduled backup failed", unwrap(throwable));
-				}
-			});
+			startScheduledBackup(server, settings);
 		} catch (Exception exception) {
 			logger.error("Could not start realtime scheduled backup", exception);
 			realtimeBackupSchedule.reset(nowMillis(), 1);
@@ -489,13 +477,7 @@ public final class BackupManager {
 				return;
 			}
 			cronBackupSchedule.rescheduleAfterRun(scheduledRunMillis, clock.getZone());
-			startBackup(server).whenComplete((entry, throwable) -> {
-				if (throwable == null) {
-					logger.info("Scheduled backup completed: {}", entry.name());
-				} else if (!(unwrap(throwable) instanceof BackupAlreadyRunningException)) {
-					logger.error("Scheduled backup failed", unwrap(throwable));
-				}
-			});
+			startScheduledBackup(server, settings);
 		} catch (Exception exception) {
 			logger.error("Could not start cron scheduled backup", exception);
 			try {
@@ -510,6 +492,23 @@ public final class BackupManager {
 
 	private long nowMillis() {
 		return Instant.now(clock).toEpochMilli();
+	}
+
+	private void startScheduledBackup(MinecraftServer server, BackupSettings settings) {
+		BackupMessenger.broadcast(server, BackupMessenger.warningText(settings, "schedule.backup.starting"));
+		startBackup(server).whenComplete((entry, throwable) -> server.executeIfPossible(() -> {
+			if (throwable == null) {
+				logger.info("Scheduled backup completed: {}", entry.name());
+				BackupMessenger.broadcast(server, BackupMessenger.successText(settings, "schedule.backup.completed", entry.name()));
+				return;
+			}
+			Throwable unwrapped = unwrap(throwable);
+			if (unwrapped instanceof BackupAlreadyRunningException) {
+				return;
+			}
+			logger.error("Scheduled backup failed", unwrapped);
+			BackupMessenger.broadcast(server, BackupMessenger.errorText(settings, "schedule.backup.failed", unwrapped.getMessage()));
+		}));
 	}
 
 	private void stopRealtimeScheduler() {
