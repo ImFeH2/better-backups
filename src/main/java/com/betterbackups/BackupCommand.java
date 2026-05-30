@@ -67,6 +67,8 @@ public final class BackupCommand {
 					.then(literal("off").executes(context -> setScheduleEnabled(context, false)))
 					.then(literal("every")
 						.then(argument("duration", StringArgumentType.word()).executes(BackupCommand::setScheduleInterval)))
+					.then(literal("cron")
+						.then(argument("expression", StringArgumentType.greedyString()).executes(BackupCommand::setScheduleCron)))
 					.then(literal("mode")
 						.then(argument("mode", StringArgumentType.word())
 							.suggests(SCHEDULE_MODE_SUGGESTIONS)
@@ -285,6 +287,24 @@ public final class BackupCommand {
 		}
 	}
 
+	private static int setScheduleCron(CommandContext<CommandSourceStack> context) {
+		BackupSettings settings = loadSettingsOrDefault(BetterBackupsMod.manager());
+		try {
+			String expression = CronBackupSchedule.normalizeExpression(StringArgumentType.getString(context, "expression"));
+			BetterBackupsMod.manager().setScheduleCron(expression);
+			settings = BetterBackupsMod.manager().loadSettings();
+			BackupMessenger.success(context.getSource(), settings, "schedule.cronSet", true, settings.scheduleCron());
+			return 1;
+		} catch (Exception exception) {
+			if (exception instanceof IllegalArgumentException) {
+				BackupMessenger.error(context.getSource(), settings, "schedule.cronInvalid");
+			} else {
+				BackupMessenger.error(context.getSource(), settings, "schedule.cronFailed", exception.getMessage());
+			}
+			return 0;
+		}
+	}
+
 	private static int setScheduleWarningEnabled(CommandContext<CommandSourceStack> context, boolean enabled) {
 		BackupSettings settings = loadSettingsOrDefault(BetterBackupsMod.manager());
 		try {
@@ -413,7 +433,12 @@ public final class BackupCommand {
 			BackupMessenger.info(context.getSource(), settings, "config.title");
 			BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.scheduleEnabled").append(onOff(settings, settings.scheduleEnabled())));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.scheduleMode").append(BackupMessenger.value(settings.scheduleMode())));
-			BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.interval").append(BackupMessenger.value(DurationParser.formatMinutes(settings.intervalMinutes()))));
+			BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.scheduleTrigger").append(BackupMessenger.value(settings.scheduleTrigger())));
+			if (settings.isCronScheduleTrigger()) {
+				BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.cron").append(BackupMessenger.value(settings.scheduleCron())));
+			} else {
+				BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.interval").append(BackupMessenger.value(DurationParser.formatMinutes(settings.intervalMinutes()))));
+			}
 			BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.scheduleWarning").append(onOff(settings, settings.shouldWarnBeforeScheduledBackup())));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.warningTime").append(BackupMessenger.value(BackupTranslations.formatSeconds(settings.language(), settings.scheduleWarningSeconds()))));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.maxBackups").append(BackupMessenger.value(String.valueOf(settings.backupsToKeep()))));

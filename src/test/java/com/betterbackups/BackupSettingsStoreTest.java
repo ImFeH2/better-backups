@@ -31,6 +31,8 @@ class BackupSettingsStoreTest {
 		assertEquals(30, settings.restoreDelaySeconds());
 		assertEquals("en_us", settings.language());
 		assertEquals("active", settings.scheduleMode());
+		assertEquals("every", settings.scheduleTrigger());
+		assertEquals("0 4 * * *", settings.scheduleCron());
 		assertTrue(tempDir.resolve("better-backups.json").toString().endsWith("better-backups.json"));
 	}
 
@@ -233,5 +235,22 @@ class BackupSettingsStoreTest {
 
 		assertEquals("active", settings.scheduleMode());
 		assertTrue(settings.isActiveScheduleMode());
+	}
+
+	@Test
+	void scheduleEverySelectsEveryTrigger() {
+		BackupSettings settings = BackupSettings.defaults().withScheduleCron("0 4 * * *").withIntervalMinutes(30);
+
+		assertEquals("every", settings.scheduleTrigger());
+		assertTrue(settings.isEveryScheduleTrigger());
+	}
+
+	@Test
+	void scheduleCronSelectsCronTrigger() {
+		BackupSettings settings = BackupSettings.defaults().withScheduleCron("0 4 * * *");
+
+		assertEquals("cron", settings.scheduleTrigger());
+		assertEquals("0 4 * * *", settings.scheduleCron());
+		assertTrue(settings.isCronScheduleTrigger());
 	}
 }

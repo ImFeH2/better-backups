@@ -20,6 +20,8 @@ import net.minecraft.world.level.storage.LevelResource;
 import org.slf4j.Logger;
 
 public final class BackupManager {
+	private static final long ACTIVE_CRON_GRACE_MILLIS = 1000;
+
 	private final BackupSettingsStore settingsStore;
 	private final BackupArchiveService archiveService;
 	private final PendingRestoreService pendingRestoreService;
@@ -37,9 +39,11 @@ public final class BackupManager {
 	private final AtomicBoolean restoreRunning = new AtomicBoolean(false);
 	private final ScheduledBackupWarningState scheduledBackupWarningState = new ScheduledBackupWarningState();
 	private final RealtimeBackupSchedule realtimeBackupSchedule = new RealtimeBackupSchedule();
+	private final CronBackupSchedule cronBackupSchedule = new CronBackupSchedule();
 	private ScheduledExecutorService realtimeScheduler;
 
 	private volatile long ticksUntilScheduledBackup = Long.MAX_VALUE;
+	private volatile boolean activeCronScheduleEnabled;
 	private volatile boolean scheduleWarningEnabled = true;
 	private volatile long scheduleWarningSeconds = 30;
 	private volatile PendingRestoreRequest pendingRestoreRequest;
@@ -116,6 +120,12 @@ public final class BackupManager {
 
 	public void setScheduleInterval(Duration interval) throws IOException {
 		BackupSettings settings = settingsStore.load().withIntervalMinutes(interval.toMinutes());
+		settingsStore.save(settings);
+		resetSchedule(settings);
+	}
+
+	public void setScheduleCron(String expression) throws IOException {
+		BackupSettings settings = settingsStore.load().withScheduleCron(expression);
 		settingsStore.save(settings);
 		resetSchedule(settings);
 	}
@@ -238,16 +248,22 @@ public final class BackupManager {
 
 	public void resetSchedule(BackupSettings settings) {
 		updateScheduleWarning(settings);
-		if (settings.scheduleEnabled() && settings.isActiveScheduleMode()) {
+		if (settings.scheduleEnabled() && settings.isActiveScheduleMode() && settings.isEveryScheduleTrigger()) {
 			ticksUntilScheduledBackup = minutesToTicks(settings.intervalMinutes());
 			scheduledBackupWarningState.reset();
 		} else {
 			ticksUntilScheduledBackup = Long.MAX_VALUE;
 		}
-		if (settings.scheduleEnabled() && settings.isRealtimeScheduleMode()) {
+		activeCronScheduleEnabled = settings.scheduleEnabled() && settings.isActiveScheduleMode() && settings.isCronScheduleTrigger();
+		if (settings.scheduleEnabled() && settings.isRealtimeScheduleMode() && settings.isEveryScheduleTrigger()) {
 			realtimeBackupSchedule.reset(nowMillis(), settings.intervalMinutes());
 		} else {
 			realtimeBackupSchedule.disable();
+		}
+		if (settings.scheduleEnabled() && settings.isCronScheduleTrigger()) {
+			cronBackupSchedule.reset(settings.scheduleCron(), nowMillis(), clock.getZone());
+		} else {
+			cronBackupSchedule.disable();
 		}
 	}
 
@@ -265,6 +281,10 @@ public final class BackupManager {
 		if (tickRestore(server)) {
 			return;
 		}
+		if (activeCronScheduleEnabled) {
+			tickCronSchedule(server);
+			return;
+		}
 		if (ticksUntilScheduledBackup == Long.MAX_VALUE) {
 			return;
 		}
@@ -278,7 +298,7 @@ public final class BackupManager {
 
 		try {
 			BackupSettings settings = settingsStore.load();
-			if (!settings.scheduleEnabled() || !settings.isActiveScheduleMode()) {
+			if (!settings.scheduleEnabled() || !settings.isActiveScheduleMode() || !settings.isEveryScheduleTrigger()) {
 				ticksUntilScheduledBackup = Long.MAX_VALUE;
 				return;
 			}
@@ -385,7 +405,16 @@ public final class BackupManager {
 	private void pollRealtimeSchedule(MinecraftServer server) {
 		try {
 			BackupSettings settings = settingsStore.load();
-			if (!settings.scheduleEnabled() || !settings.isRealtimeScheduleMode()) {
+			if (!settings.scheduleEnabled()) {
+				realtimeBackupSchedule.disable();
+				cronBackupSchedule.disable();
+				return;
+			}
+			if (settings.isRealtimeScheduleMode() && settings.isCronScheduleTrigger()) {
+				pollCronSchedule(server, settings);
+				return;
+			}
+			if (!settings.isRealtimeScheduleMode() || !settings.isEveryScheduleTrigger()) {
 				realtimeBackupSchedule.disable();
 				return;
 			}
@@ -402,10 +431,39 @@ public final class BackupManager {
 		}
 	}
 
+	private void tickCronSchedule(MinecraftServer server) {
+		try {
+			BackupSettings settings = settingsStore.load();
+			if (!settings.scheduleEnabled() || !settings.isActiveScheduleMode() || !settings.isCronScheduleTrigger()) {
+				activeCronScheduleEnabled = false;
+				return;
+			}
+			cronBackupSchedule.skipMissedRuns(nowMillis(), clock.getZone(), ACTIVE_CRON_GRACE_MILLIS);
+			pollCronSchedule(server, settings);
+		} catch (IOException exception) {
+			logger.error("Could not read backup settings", exception);
+		}
+	}
+
+	private void pollCronSchedule(MinecraftServer server, BackupSettings settings) {
+		CronBackupSchedule.Event event = cronBackupSchedule.poll(nowMillis(), settings.shouldWarnBeforeScheduledBackup(), settings.scheduleWarningSeconds());
+		if (event.type() == CronBackupSchedule.EventType.WARN) {
+			BackupMessenger.broadcast(server, BackupMessenger.warningText(settings, "schedule.warning.starting", BackupTranslations.formatSeconds(settings.language(), event.secondsUntilRun())));
+			return;
+		}
+		if (event.type() == CronBackupSchedule.EventType.RUN) {
+			if (settings.isActiveScheduleMode()) {
+				runCronScheduledBackup(server, event.scheduledRunMillis());
+			} else {
+				server.executeIfPossible(() -> runCronScheduledBackup(server, event.scheduledRunMillis()));
+			}
+		}
+	}
+
 	private void runRealtimeScheduledBackup(MinecraftServer server, long scheduledRunMillis) {
 		try {
 			BackupSettings settings = settingsStore.load();
-			if (!settings.scheduleEnabled() || !settings.isRealtimeScheduleMode()) {
+			if (!settings.scheduleEnabled() || !settings.isRealtimeScheduleMode() || !settings.isEveryScheduleTrigger()) {
 				realtimeBackupSchedule.disable();
 				return;
 			}
@@ -420,6 +478,33 @@ public final class BackupManager {
 		} catch (Exception exception) {
 			logger.error("Could not start realtime scheduled backup", exception);
 			realtimeBackupSchedule.reset(nowMillis(), 1);
+		}
+	}
+
+	private void runCronScheduledBackup(MinecraftServer server, long scheduledRunMillis) {
+		try {
+			BackupSettings settings = settingsStore.load();
+			if (!settings.scheduleEnabled() || !settings.isCronScheduleTrigger()) {
+				cronBackupSchedule.disable();
+				return;
+			}
+			cronBackupSchedule.rescheduleAfterRun(scheduledRunMillis, clock.getZone());
+			startBackup(server).whenComplete((entry, throwable) -> {
+				if (throwable == null) {
+					logger.info("Scheduled backup completed: {}", entry.name());
+				} else if (!(unwrap(throwable) instanceof BackupAlreadyRunningException)) {
+					logger.error("Scheduled backup failed", unwrap(throwable));
+				}
+			});
+		} catch (Exception exception) {
+			logger.error("Could not start cron scheduled backup", exception);
+			try {
+				BackupSettings settings = settingsStore.load();
+				cronBackupSchedule.reset(settings.scheduleCron(), nowMillis(), clock.getZone());
+			} catch (Exception resetException) {
+				logger.error("Could not reset cron backup schedule", resetException);
+				cronBackupSchedule.disable();
+			}
 		}
 	}
 

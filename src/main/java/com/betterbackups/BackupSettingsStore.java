@@ -49,8 +49,10 @@ public final class BackupSettingsStore {
 		long restoreDelaySeconds = settings.restoreDelaySeconds() > 0 ? settings.restoreDelaySeconds() : defaults.restoreDelaySeconds();
 		String language = BackupTranslations.normalizeLanguage(settings.language());
 		String scheduleMode = normalizeScheduleMode(settings.scheduleMode());
+		String scheduleTrigger = normalizeScheduleTrigger(settings.scheduleTrigger());
+		String scheduleCron = normalizeScheduleCron(settings.scheduleCron());
 		String pendingRestore = settings.pendingRestore() == null ? "" : settings.pendingRestore();
-		return new BackupSettings(settings.scheduleEnabled(), intervalMinutes, backupsToKeep, backupDirectory, settings.shouldStopAfterRestore(), settings.shouldConfirmBeforeClear(), settings.shouldWarnBeforeScheduledBackup(), scheduleWarningSeconds, settings.shouldDelayRestore(), restoreDelaySeconds, language, scheduleMode, pendingRestore);
+		return new BackupSettings(settings.scheduleEnabled(), intervalMinutes, backupsToKeep, backupDirectory, settings.shouldStopAfterRestore(), settings.shouldConfirmBeforeClear(), settings.shouldWarnBeforeScheduledBackup(), scheduleWarningSeconds, settings.shouldDelayRestore(), restoreDelaySeconds, language, scheduleMode, scheduleTrigger, scheduleCron, pendingRestore);
 	}
 
 	private boolean isBlank(String value) {
@@ -62,5 +64,20 @@ public final class BackupSettingsStore {
 			return "realtime";
 		}
 		return "active";
+	}
+
+	private String normalizeScheduleTrigger(String value) {
+		if ("cron".equals(value)) {
+			return "cron";
+		}
+		return "every";
+	}
+
+	private String normalizeScheduleCron(String value) {
+		try {
+			return CronBackupSchedule.normalizeExpression(value);
+		} catch (IllegalArgumentException exception) {
+			return BackupSettings.defaults().scheduleCron();
+		}
 	}
 }

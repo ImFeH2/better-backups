@@ -23,6 +23,7 @@ Settings:
 ```text
 /backup set schedule on|off
 /backup set schedule every <duration>
+/backup set schedule cron "<expression>"
 /backup set schedule mode active|realtime
 /backup set schedule warning on|off
 /backup set schedule warning before <duration>
@@ -36,13 +37,17 @@ Settings:
 
 `/backup clear` asks for confirmation by default. Use the clickable confirm message in chat, or run `/backup clear confirm`.
 
-Schedule intervals use `m`, `h`, or `d`. Warning and restore delay times also support `s`.
-Schedule mode `active` counts only while the server is actively ticking. `realtime` uses wall clock time while the server process is running.
+Schedule trigger can be `every` or `cron`. They are mutually exclusive: setting one replaces the other.
+Schedule mode `active` only runs scheduled backups while the server is actively ticking. `realtime` uses wall clock time while the server process is running.
+Interval schedules use `m`, `h`, or `d`. Cron schedules use 5-part cron expressions in the server timezone.
+Warning and restore delay times also support `s`.
 
 ```text
 /backup set schedule every 30m
 /backup set schedule every 2h
 /backup set schedule every 1d
+/backup set schedule cron "0 4 * * *"
+/backup set schedule cron "*/30 * * * *"
 /backup set schedule warning before 30s
 /backup set restore-delay time 30s
 ```
