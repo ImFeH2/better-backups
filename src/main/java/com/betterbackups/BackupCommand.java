@@ -65,6 +65,7 @@ public final class BackupCommand {
 				.then(literal("backups").executes(BackupCommand::menuBackups))
 				.then(literal("status").executes(BackupCommand::menuStatus))
 				.then(literal("config").executes(BackupCommand::menuConfig)))
+			.then(literal("help").executes(BackupCommand::help))
 			.then(literal("status").executes(BackupCommand::status))
 			.then(literal("set")
 				.then(literal("schedule")
@@ -334,6 +335,43 @@ public final class BackupCommand {
 			BackupMessenger.error(context.getSource(), settings, "config.readFailed", exception.getMessage());
 			return 0;
 		}
+	}
+
+	private static int help(CommandContext<CommandSourceStack> context) {
+		BackupSettings settings = loadSettingsOrDefault(BetterBackupsMod.manager());
+		BackupMessenger.info(context.getSource(), settings, "help.title");
+		BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "help.menuIntro")
+			.append(space())
+			.append(BackupMessenger.commandButton(settings, "help.openMenu", "/backup menu", "help.openMenu.hover")));
+
+		BackupMessenger.line(context.getSource(), BackupHelp.section(settings, "help.actions"));
+		BackupMessenger.line(context.getSource(), BackupHelp.runnable(settings, "/backup start", "help.start.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.runnable(settings, "/backup menu", "help.menu.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.runnable(settings, "/backup list", "help.list.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.runnable(settings, "/backup clear", "help.clear.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.editable(settings, "/backup clear confirm", "/backup clear confirm", "help.clearConfirmCommand.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.editable(settings, "/backup restore <backup>", "/backup restore ", "help.restore.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.runnable(settings, "/backup restore cancel", "help.restoreCancel.description"));
+
+		BackupMessenger.line(context.getSource(), BackupHelp.section(settings, "help.info"));
+		BackupMessenger.line(context.getSource(), BackupHelp.runnable(settings, "/backup status", "help.status.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.runnable(settings, "/backup config", "help.config.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.runnable(settings, "/backup help", "help.help.description"));
+
+		BackupMessenger.line(context.getSource(), BackupHelp.section(settings, "help.configSection"));
+		BackupMessenger.line(context.getSource(), BackupHelp.editable(settings, "/backup set schedule on|off", "/backup set schedule ", "help.scheduleEnabled.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.editable(settings, "/backup set schedule every <duration>", "/backup set schedule every ", "help.scheduleEvery.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.editable(settings, "/backup set schedule cron \"<expression>\"", "/backup set schedule cron ", "help.scheduleCron.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.editable(settings, "/backup set schedule mode active|realtime", "/backup set schedule mode ", "help.scheduleMode.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.editable(settings, "/backup set schedule warning on|off", "/backup set schedule warning ", "help.scheduleWarning.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.editable(settings, "/backup set schedule warning before <duration>", "/backup set schedule warning before ", "help.scheduleWarningBefore.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.editable(settings, "/backup set max-backups <count>", "/backup set max-backups ", "help.maxBackups.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.editable(settings, "/backup set stop-after-restore on|off", "/backup set stop-after-restore ", "help.stopAfterRestore.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.editable(settings, "/backup set restore-delay on|off", "/backup set restore-delay ", "help.restoreDelay.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.editable(settings, "/backup set restore-delay time <duration>", "/backup set restore-delay time ", "help.restoreDelayTime.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.editable(settings, "/backup set clear-confirm on|off", "/backup set clear-confirm ", "help.clearConfirm.description"));
+		BackupMessenger.line(context.getSource(), BackupHelp.editable(settings, "/backup set language <language>", "/backup set language ", "help.language.description"));
+		return 1;
 	}
 
 	private static int setScheduleEnabled(CommandContext<CommandSourceStack> context, boolean enabled) {

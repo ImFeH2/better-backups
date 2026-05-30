@@ -16,6 +16,7 @@ Common commands:
 /backup restore cancel     Cancel a pending restore.
 /backup status             Show current backup status.
 /backup config             Show current settings.
+/backup help               Show command help.
 /backup menu               Open the interactive backup menu.
 ```
 
