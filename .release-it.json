@@ -1,0 +1,26 @@
+{
+	"$schema": "https://unpkg.com/release-it@20/schema/release-it.json",
+	"git": {
+		"commitMessage": "chore: bump version to ${version}",
+		"tagName": "v${version}",
+		"tagAnnotation": "Release ${version}"
+	},
+	"npm": false,
+	"github": {
+		"release": false
+	},
+	"plugins": {
+		"@release-it/bumper": {
+			"in": {
+				"file": "gradle.properties",
+				"type": "text/x-properties",
+				"path": "mod_version"
+			},
+			"out": {
+				"file": "gradle.properties",
+				"type": "text/x-properties",
+				"path": "mod_version"
+			}
+		}
+	}
+}

@@ -2,6 +2,7 @@
 build/
 out/
 classes/
+node_modules/
 
 *.launch
 

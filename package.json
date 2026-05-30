@@ -1,0 +1,12 @@
+{
+	"name": "better-backups",
+	"private": true,
+	"packageManager": "pnpm@11.3.0",
+	"scripts": {
+		"release": "release-it --no-npm"
+	},
+	"devDependencies": {
+		"release-it": "^20.0.1",
+		"@release-it/bumper": "^7.0.5"
+	}
+}

@@ -79,4 +79,11 @@ Restore any available backup from the command list. By default, the server stops
 ```text
 JAVA_HOME=/path/to/java-25 ./gradlew build
 ```
+
+## Release
+
+```text
+pnpm release 1.2.0
+pnpm release minor
+```
 <!-- modrinth_exclude.end -->
