@@ -7,6 +7,7 @@
 	"authors": [
 		"ImFeH2 <i@feh2.im>"
 	],
+	"icon": "assets/better-backups/icon.png",
 	"license": "Apache-2.0",
 	"environment": "server",
 	"entrypoints": {
