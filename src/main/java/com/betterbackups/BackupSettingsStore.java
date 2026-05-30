@@ -48,11 +48,19 @@ public final class BackupSettingsStore {
 		long scheduleWarningSeconds = settings.scheduleWarningSeconds() > 0 ? settings.scheduleWarningSeconds() : defaults.scheduleWarningSeconds();
 		long restoreDelaySeconds = settings.restoreDelaySeconds() > 0 ? settings.restoreDelaySeconds() : defaults.restoreDelaySeconds();
 		String language = BackupTranslations.normalizeLanguage(settings.language());
+		String scheduleMode = normalizeScheduleMode(settings.scheduleMode());
 		String pendingRestore = settings.pendingRestore() == null ? "" : settings.pendingRestore();
-		return new BackupSettings(settings.scheduleEnabled(), intervalMinutes, backupsToKeep, backupDirectory, settings.shouldStopAfterRestore(), settings.shouldConfirmBeforeClear(), settings.shouldWarnBeforeScheduledBackup(), scheduleWarningSeconds, settings.shouldDelayRestore(), restoreDelaySeconds, language, pendingRestore);
+		return new BackupSettings(settings.scheduleEnabled(), intervalMinutes, backupsToKeep, backupDirectory, settings.shouldStopAfterRestore(), settings.shouldConfirmBeforeClear(), settings.shouldWarnBeforeScheduledBackup(), scheduleWarningSeconds, settings.shouldDelayRestore(), restoreDelaySeconds, language, scheduleMode, pendingRestore);
 	}
 
 	private boolean isBlank(String value) {
 		return value == null || value.isBlank();
+	}
+
+	private String normalizeScheduleMode(String value) {
+		if ("realtime".equals(value)) {
+			return "realtime";
+		}
+		return "active";
 	}
 }

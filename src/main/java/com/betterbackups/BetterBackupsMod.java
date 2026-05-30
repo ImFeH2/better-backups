@@ -42,6 +42,7 @@ public final class BetterBackupsMod implements ModInitializer {
 		ServerLifecycleEvents.SERVER_STARTED.register(server -> {
 			try {
 				manager.resetSchedule(manager.loadSettings());
+				manager.startRealtimeScheduler(server);
 			} catch (Exception exception) {
 				LOGGER.error("Could not load backup settings", exception);
 			}

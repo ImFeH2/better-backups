@@ -6,40 +6,45 @@ A better backup mod for Minecraft worlds.
 
 All commands require server owner permission.
 
-```text
-/backup start
-/backup list
-/backup clear
-/backup clear confirm
-/backup restore <backup>
-/backup restore cancel
-/backup status
+Common commands:
 
-/backup set schedule on
-/backup set schedule off
-/backup set schedule every <duration>
-/backup set schedule warning on
-/backup set schedule warning off
-/backup set schedule warning before <duration>
-/backup set max-backups <count>
-/backup set stop-after-restore on
-/backup set stop-after-restore off
-/backup set restore-delay on
-/backup set restore-delay off
-/backup set restore-delay time <duration>
-/backup set clear-confirm on
-/backup set clear-confirm off
-/backup set language <language>
-/backup config
+```text
+/backup start              Create a backup now.
+/backup list               Show available backups.
+/backup clear              Delete all backups after confirmation.
+/backup restore <backup>   Restore a backup.
+/backup restore cancel     Cancel a pending restore.
+/backup status             Show current backup status.
+/backup config             Show current settings.
 ```
 
-Schedule interval values use `m`, `h`, or `d`. Warning time values also support `s`.
+Settings:
+
+```text
+/backup set schedule on|off
+/backup set schedule every <duration>
+/backup set schedule mode active|realtime
+/backup set schedule warning on|off
+/backup set schedule warning before <duration>
+/backup set max-backups <count>
+/backup set stop-after-restore on|off
+/backup set restore-delay on|off
+/backup set restore-delay time <duration>
+/backup set clear-confirm on|off
+/backup set language <language>
+```
+
+`/backup clear` asks for confirmation by default. Use the clickable confirm message in chat, or run `/backup clear confirm`.
+
+Schedule intervals use `m`, `h`, or `d`. Warning and restore delay times also support `s`.
+Schedule mode `active` counts only while the server is actively ticking. `realtime` uses wall clock time while the server process is running.
 
 ```text
 /backup set schedule every 30m
 /backup set schedule every 2h
 /backup set schedule every 1d
 /backup set schedule warning before 30s
+/backup set restore-delay time 30s
 ```
 
 Supported languages are `en_us` and `zh_cn`.

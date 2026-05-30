@@ -30,6 +30,7 @@ class BackupSettingsStoreTest {
 		assertTrue(settings.shouldDelayRestore());
 		assertEquals(30, settings.restoreDelaySeconds());
 		assertEquals("en_us", settings.language());
+		assertEquals("active", settings.scheduleMode());
 		assertTrue(tempDir.resolve("better-backups.json").toString().endsWith("better-backups.json"));
 	}
 
@@ -177,5 +178,60 @@ class BackupSettingsStoreTest {
 		BackupSettings settings = store.load();
 
 		assertEquals("en_us", settings.language());
+	}
+
+	@Test
+	void missingScheduleModeDefaultsToActive() throws Exception {
+		Path config = tempDir.resolve("better-backups.json");
+		Files.writeString(config, """
+			{
+			  "scheduleEnabled": false,
+			  "intervalMinutes": 60,
+			  "backupsToKeep": 10,
+			  "backupDirectory": "backups",
+			  "stopAfterRestore": true,
+			  "clearRequiresConfirm": true,
+			  "scheduleWarningEnabled": true,
+			  "scheduleWarningSeconds": 30,
+			  "restoreDelayEnabled": true,
+			  "restoreDelaySeconds": 30,
+			  "language": "en_us",
+			  "pendingRestore": ""
+			}
+			""");
+		BackupSettingsStore store = new BackupSettingsStore(config);
+
+		BackupSettings settings = store.load();
+
+		assertEquals("active", settings.scheduleMode());
+		assertTrue(settings.isActiveScheduleMode());
+	}
+
+	@Test
+	void unsupportedScheduleModeDefaultsToActive() throws Exception {
+		Path config = tempDir.resolve("better-backups.json");
+		Files.writeString(config, """
+			{
+			  "scheduleEnabled": false,
+			  "intervalMinutes": 60,
+			  "backupsToKeep": 10,
+			  "backupDirectory": "backups",
+			  "stopAfterRestore": true,
+			  "clearRequiresConfirm": true,
+			  "scheduleWarningEnabled": true,
+			  "scheduleWarningSeconds": 30,
+			  "restoreDelayEnabled": true,
+			  "restoreDelaySeconds": 30,
+			  "language": "en_us",
+			  "scheduleMode": "cron",
+			  "pendingRestore": ""
+			}
+			""");
+		BackupSettingsStore store = new BackupSettingsStore(config);
+
+		BackupSettings settings = store.load();
+
+		assertEquals("active", settings.scheduleMode());
+		assertTrue(settings.isActiveScheduleMode());
 	}
 }

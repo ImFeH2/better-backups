@@ -38,6 +38,11 @@ public final class BackupCommand {
 		}
 		return builder.buildFuture();
 	};
+	private static final SuggestionProvider<CommandSourceStack> SCHEDULE_MODE_SUGGESTIONS = (context, builder) -> {
+		builder.suggest("active");
+		builder.suggest("realtime");
+		return builder.buildFuture();
+	};
 
 	private BackupCommand() {
 	}
@@ -62,6 +67,10 @@ public final class BackupCommand {
 					.then(literal("off").executes(context -> setScheduleEnabled(context, false)))
 					.then(literal("every")
 						.then(argument("duration", StringArgumentType.word()).executes(BackupCommand::setScheduleInterval)))
+					.then(literal("mode")
+						.then(argument("mode", StringArgumentType.word())
+							.suggests(SCHEDULE_MODE_SUGGESTIONS)
+							.executes(BackupCommand::setScheduleMode)))
 					.then(literal("warning")
 						.then(literal("on").executes(context -> setScheduleWarningEnabled(context, true)))
 						.then(literal("off").executes(context -> setScheduleWarningEnabled(context, false)))
@@ -258,6 +267,24 @@ public final class BackupCommand {
 		}
 	}
 
+	private static int setScheduleMode(CommandContext<CommandSourceStack> context) {
+		BackupSettings settings = loadSettingsOrDefault(BetterBackupsMod.manager());
+		String mode = StringArgumentType.getString(context, "mode");
+		if (!"active".equals(mode) && !"realtime".equals(mode)) {
+			BackupMessenger.error(context.getSource(), settings, "schedule.modeUnsupported", mode);
+			return 0;
+		}
+		try {
+			BetterBackupsMod.manager().setScheduleMode(mode);
+			settings = BetterBackupsMod.manager().loadSettings();
+			BackupMessenger.success(context.getSource(), settings, "schedule.modeSet", true, settings.scheduleMode());
+			return 1;
+		} catch (Exception exception) {
+			BackupMessenger.error(context.getSource(), settings, "schedule.modeFailed", exception.getMessage());
+			return 0;
+		}
+	}
+
 	private static int setScheduleWarningEnabled(CommandContext<CommandSourceStack> context, boolean enabled) {
 		BackupSettings settings = loadSettingsOrDefault(BetterBackupsMod.manager());
 		try {
@@ -385,6 +412,7 @@ public final class BackupCommand {
 			settings = manager.loadSettings();
 			BackupMessenger.info(context.getSource(), settings, "config.title");
 			BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.scheduleEnabled").append(onOff(settings, settings.scheduleEnabled())));
+			BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.scheduleMode").append(BackupMessenger.value(settings.scheduleMode())));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.interval").append(BackupMessenger.value(DurationParser.formatMinutes(settings.intervalMinutes()))));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.scheduleWarning").append(onOff(settings, settings.shouldWarnBeforeScheduledBackup())));
 			BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.warningTime").append(BackupMessenger.value(BackupTranslations.formatSeconds(settings.language(), settings.scheduleWarningSeconds()))));

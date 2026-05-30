@@ -6,11 +6,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.level.storage.LevelResource;
@@ -20,6 +23,7 @@ public final class BackupManager {
 	private final BackupSettingsStore settingsStore;
 	private final BackupArchiveService archiveService;
 	private final PendingRestoreService pendingRestoreService;
+	private final Clock clock;
 	private final Path gameDirectory;
 	private final String minecraftVersion;
 	private final String modVersion;
@@ -32,6 +36,8 @@ public final class BackupManager {
 	private final AtomicBoolean backupRunning = new AtomicBoolean(false);
 	private final AtomicBoolean restoreRunning = new AtomicBoolean(false);
 	private final ScheduledBackupWarningState scheduledBackupWarningState = new ScheduledBackupWarningState();
+	private final RealtimeBackupSchedule realtimeBackupSchedule = new RealtimeBackupSchedule();
+	private ScheduledExecutorService realtimeScheduler;
 
 	private volatile long ticksUntilScheduledBackup = Long.MAX_VALUE;
 	private volatile boolean scheduleWarningEnabled = true;
@@ -48,6 +54,7 @@ public final class BackupManager {
 		Clock clock
 	) {
 		this.settingsStore = settingsStore;
+		this.clock = clock;
 		this.archiveService = new BackupArchiveService(clock);
 		this.pendingRestoreService = new PendingRestoreService(archiveService, clock);
 		this.gameDirectory = gameDirectory;
@@ -109,6 +116,12 @@ public final class BackupManager {
 
 	public void setScheduleInterval(Duration interval) throws IOException {
 		BackupSettings settings = settingsStore.load().withIntervalMinutes(interval.toMinutes());
+		settingsStore.save(settings);
+		resetSchedule(settings);
+	}
+
+	public void setScheduleMode(String scheduleMode) throws IOException {
+		BackupSettings settings = settingsStore.load().withScheduleMode(scheduleMode);
 		settingsStore.save(settings);
 		resetSchedule(settings);
 	}
@@ -225,12 +238,27 @@ public final class BackupManager {
 
 	public void resetSchedule(BackupSettings settings) {
 		updateScheduleWarning(settings);
-		if (settings.scheduleEnabled()) {
+		if (settings.scheduleEnabled() && settings.isActiveScheduleMode()) {
 			ticksUntilScheduledBackup = minutesToTicks(settings.intervalMinutes());
 			scheduledBackupWarningState.reset();
 		} else {
 			ticksUntilScheduledBackup = Long.MAX_VALUE;
 		}
+		if (settings.scheduleEnabled() && settings.isRealtimeScheduleMode()) {
+			realtimeBackupSchedule.reset(nowMillis(), settings.intervalMinutes());
+		} else {
+			realtimeBackupSchedule.disable();
+		}
+	}
+
+	public void startRealtimeScheduler(MinecraftServer server) {
+		stopRealtimeScheduler();
+		realtimeScheduler = Executors.newSingleThreadScheduledExecutor(task -> {
+			Thread thread = new Thread(task, "better-backups-realtime-scheduler");
+			thread.setDaemon(true);
+			return thread;
+		});
+		realtimeScheduler.scheduleAtFixedRate(() -> pollRealtimeSchedule(server), 1, 1, TimeUnit.SECONDS);
 	}
 
 	public void tick(MinecraftServer server) {
@@ -250,7 +278,7 @@ public final class BackupManager {
 
 		try {
 			BackupSettings settings = settingsStore.load();
-			if (!settings.scheduleEnabled()) {
+			if (!settings.scheduleEnabled() || !settings.isActiveScheduleMode()) {
 				ticksUntilScheduledBackup = Long.MAX_VALUE;
 				return;
 			}
@@ -304,6 +332,7 @@ public final class BackupManager {
 	}
 
 	public void shutdown() {
+		stopRealtimeScheduler();
 		executor.shutdownNow();
 	}
 
@@ -351,6 +380,59 @@ public final class BackupManager {
 	private String formatTicks(BackupSettings settings, long ticks) {
 		long seconds = Math.max(1, (ticks + 19) / 20);
 		return BackupTranslations.formatSeconds(settings.language(), seconds);
+	}
+
+	private void pollRealtimeSchedule(MinecraftServer server) {
+		try {
+			BackupSettings settings = settingsStore.load();
+			if (!settings.scheduleEnabled() || !settings.isRealtimeScheduleMode()) {
+				realtimeBackupSchedule.disable();
+				return;
+			}
+			RealtimeBackupSchedule.Event event = realtimeBackupSchedule.poll(nowMillis(), settings.shouldWarnBeforeScheduledBackup(), settings.scheduleWarningSeconds());
+			if (event.type() == RealtimeBackupSchedule.EventType.WARN) {
+				BackupMessenger.broadcast(server, BackupMessenger.warningText(settings, "schedule.warning.starting", BackupTranslations.formatSeconds(settings.language(), event.secondsUntilRun())));
+				return;
+			}
+			if (event.type() == RealtimeBackupSchedule.EventType.RUN) {
+				server.executeIfPossible(() -> runRealtimeScheduledBackup(server, event.scheduledRunMillis()));
+			}
+		} catch (Exception exception) {
+			logger.error("Could not run realtime backup schedule", exception);
+		}
+	}
+
+	private void runRealtimeScheduledBackup(MinecraftServer server, long scheduledRunMillis) {
+		try {
+			BackupSettings settings = settingsStore.load();
+			if (!settings.scheduleEnabled() || !settings.isRealtimeScheduleMode()) {
+				realtimeBackupSchedule.disable();
+				return;
+			}
+			realtimeBackupSchedule.rescheduleAfterRun(scheduledRunMillis, settings.intervalMinutes());
+			startBackup(server).whenComplete((entry, throwable) -> {
+				if (throwable == null) {
+					logger.info("Scheduled backup completed: {}", entry.name());
+				} else if (!(unwrap(throwable) instanceof BackupAlreadyRunningException)) {
+					logger.error("Scheduled backup failed", unwrap(throwable));
+				}
+			});
+		} catch (Exception exception) {
+			logger.error("Could not start realtime scheduled backup", exception);
+			realtimeBackupSchedule.reset(nowMillis(), 1);
+		}
+	}
+
+	private long nowMillis() {
+		return Instant.now(clock).toEpochMilli();
+	}
+
+	private void stopRealtimeScheduler() {
+		ScheduledExecutorService scheduler = realtimeScheduler;
+		if (scheduler != null) {
+			scheduler.shutdownNow();
+			realtimeScheduler = null;
+		}
 	}
 
 	private BackupSettings loadSettingsOrDefault() {
