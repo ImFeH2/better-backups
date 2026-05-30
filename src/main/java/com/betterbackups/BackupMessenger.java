@@ -121,6 +121,18 @@ public final class BackupMessenger {
 		return commandButton(t(settings, labelKey), command, t(settings, hoverKey));
 	}
 
+	public static MutableComponent suggestButton(String label, String command, String hoverText) {
+		return Component.literal(label)
+			.withStyle(ChatFormatting.AQUA, ChatFormatting.BOLD)
+			.withStyle(style -> style
+				.withClickEvent(new ClickEvent.SuggestCommand(command))
+				.withHoverEvent(new HoverEvent.ShowText(Component.literal(hoverText))));
+	}
+
+	public static MutableComponent suggestButton(BackupSettings settings, String labelKey, String command, String hoverKey) {
+		return suggestButton(t(settings, labelKey), command, t(settings, hoverKey));
+	}
+
 	public static String t(BackupSettings settings, String key, Object... arguments) {
 		return BackupTranslations.translate(settings.language(), key, arguments);
 	}

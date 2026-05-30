@@ -16,6 +16,7 @@ Common commands:
 /backup restore cancel     Cancel a pending restore.
 /backup status             Show current backup status.
 /backup config             Show current settings.
+/backup menu               Open the interactive backup menu.
 ```
 
 Settings:
@@ -36,6 +37,7 @@ Settings:
 ```
 
 `/backup clear` asks for confirmation by default. Use the clickable confirm message in chat, or run `/backup clear confirm`.
+Use `/backup menu` for clickable backup actions and config controls.
 
 Schedule trigger can be `every` or `cron`. They are mutually exclusive: setting one replaces the other.
 Schedule mode `active` only runs scheduled backups while the server is actively ticking. `realtime` uses wall clock time while the server process is running.

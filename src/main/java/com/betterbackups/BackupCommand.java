@@ -60,6 +60,11 @@ public final class BackupCommand {
 				.then(argument("backup", StringArgumentType.word())
 					.suggests(BACKUP_SUGGESTIONS)
 					.executes(BackupCommand::restoreBackup)))
+			.then(literal("menu")
+				.executes(BackupCommand::menu)
+				.then(literal("backups").executes(BackupCommand::menuBackups))
+				.then(literal("status").executes(BackupCommand::menuStatus))
+				.then(literal("config").executes(BackupCommand::menuConfig)))
 			.then(literal("status").executes(BackupCommand::status))
 			.then(literal("set")
 				.then(literal("schedule")
@@ -234,6 +239,99 @@ public final class BackupCommand {
 			return 1;
 		} catch (Exception exception) {
 			BackupMessenger.error(context.getSource(), settings, "status.readFailed", exception.getMessage());
+			return 0;
+		}
+	}
+
+	private static int menu(CommandContext<CommandSourceStack> context) {
+		BackupSettings settings = loadSettingsOrDefault(BetterBackupsMod.manager());
+		BackupMessenger.info(context.getSource(), settings, "menu.title");
+		BackupMessenger.line(context.getSource(), BackupMessenger.commandButton(settings, "menu.start", "/backup start", "menu.start.hover")
+			.append(space())
+			.append(BackupMessenger.commandButton(settings, "menu.backups", "/backup menu backups", "menu.backups.hover"))
+			.append(space())
+			.append(BackupMessenger.commandButton(settings, "menu.status", "/backup menu status", "menu.status.hover"))
+			.append(space())
+			.append(BackupMessenger.commandButton(settings, "menu.config", "/backup menu config", "menu.config.hover")));
+		return 1;
+	}
+
+	private static int menuBackups(CommandContext<CommandSourceStack> context) {
+		BackupSettings settings = loadSettingsOrDefault(BetterBackupsMod.manager());
+		try {
+			List<BackupEntry> entries = BetterBackupsMod.manager().listBackups();
+			BackupMessenger.info(context.getSource(), settings, "menu.backups.title");
+			if (entries.isEmpty()) {
+				BackupMessenger.info(context.getSource(), settings, "backup.noneFound");
+			} else {
+				for (BackupEntry entry : entries) {
+					BackupMessenger.line(context.getSource(), BackupMessenger.value(entry.name())
+						.append(BackupMessenger.muted(" (" + formatBytes(entry.sizeBytes()) + ") "))
+						.append(BackupMessenger.commandButton(settings, "menu.restore", "/backup restore " + entry.name(), "menu.restore.hover")));
+				}
+			}
+			BackupMessenger.line(context.getSource(), BackupMessenger.commandButton(settings, "menu.clear", "/backup clear", "menu.clear.hover")
+				.append(space())
+				.append(BackupMessenger.commandButton(settings, "menu.back", "/backup menu", "menu.back.hover")));
+			return Math.max(1, entries.size());
+		} catch (Exception exception) {
+			BackupMessenger.error(context.getSource(), settings, "backup.listFailed", exception.getMessage());
+			return 0;
+		}
+	}
+
+	private static int menuStatus(CommandContext<CommandSourceStack> context) {
+		BackupSettings settings = loadSettingsOrDefault(BetterBackupsMod.manager());
+		try {
+			BackupManager manager = BetterBackupsMod.manager();
+			settings = manager.loadSettings();
+			BackupMessenger.info(context.getSource(), settings, "menu.status.title");
+			if (manager.isBackupRunning()) {
+				BackupMessenger.line(context.getSource(), BackupMessenger.warningText(settings, "backup.inProgress"));
+			} else {
+				BackupEntry latest = manager.latestBackup();
+				if (latest == null) {
+					BackupMessenger.line(context.getSource(), BackupMessenger.muted(BackupMessenger.t(settings, "status.noCompletedBackup")));
+				} else {
+					BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "status.latestBackup").append(BackupMessenger.value(latest.name())));
+				}
+			}
+			BackupMessenger.line(context.getSource(), BackupMessenger.label(settings, "config.scheduleEnabled").append(onOff(settings, settings.scheduleEnabled())));
+			BackupMessenger.line(context.getSource(), BackupMessenger.commandButton(settings, "menu.refresh", "/backup menu status", "menu.refresh.hover")
+				.append(space())
+				.append(BackupMessenger.commandButton(settings, "menu.back", "/backup menu", "menu.back.hover")));
+			return 1;
+		} catch (Exception exception) {
+			BackupMessenger.error(context.getSource(), settings, "status.readFailed", exception.getMessage());
+			return 0;
+		}
+	}
+
+	private static int menuConfig(CommandContext<CommandSourceStack> context) {
+		BackupSettings settings = loadSettingsOrDefault(BetterBackupsMod.manager());
+		try {
+			BackupManager manager = BetterBackupsMod.manager();
+			settings = manager.loadSettings();
+			BackupMessenger.info(context.getSource(), settings, "menu.config.title");
+			BackupMessenger.line(context.getSource(), configToggle(settings, "config.scheduleEnabled", settings.scheduleEnabled(), "/backup set schedule on", "/backup set schedule off"));
+			BackupMessenger.line(context.getSource(), configChoice(settings, "config.scheduleMode", settings.scheduleMode(), settings.isActiveScheduleMode() ? "/backup set schedule mode realtime" : "/backup set schedule mode active", settings.isActiveScheduleMode() ? "menu.useRealtime" : "menu.useActive"));
+			BackupMessenger.line(context.getSource(), configTrigger(settings));
+			BackupMessenger.line(context.getSource(), configSuggest(settings, "config.interval", DurationParser.formatMinutes(settings.intervalMinutes()), "/backup set schedule every " + DurationParser.formatMinutes(settings.intervalMinutes())));
+			BackupMessenger.line(context.getSource(), configSuggest(settings, "config.cron", settings.scheduleCron(), "/backup set schedule cron " + settings.scheduleCron()));
+			BackupMessenger.line(context.getSource(), configToggle(settings, "config.scheduleWarning", settings.shouldWarnBeforeScheduledBackup(), "/backup set schedule warning on", "/backup set schedule warning off"));
+			BackupMessenger.line(context.getSource(), configSuggest(settings, "config.warningTime", BackupTranslations.formatSeconds(settings.language(), settings.scheduleWarningSeconds()), "/backup set schedule warning before " + settings.scheduleWarningSeconds() + "s"));
+			BackupMessenger.line(context.getSource(), configSuggest(settings, "config.maxBackups", String.valueOf(settings.backupsToKeep()), "/backup set max-backups " + settings.backupsToKeep()));
+			BackupMessenger.line(context.getSource(), configToggle(settings, "config.stopAfterRestore", settings.shouldStopAfterRestore(), "/backup set stop-after-restore on", "/backup set stop-after-restore off"));
+			BackupMessenger.line(context.getSource(), configToggle(settings, "config.restoreDelay", settings.shouldDelayRestore(), "/backup set restore-delay on", "/backup set restore-delay off"));
+			BackupMessenger.line(context.getSource(), configSuggest(settings, "config.restoreDelayTime", BackupTranslations.formatSeconds(settings.language(), settings.restoreDelaySeconds()), "/backup set restore-delay time " + settings.restoreDelaySeconds() + "s"));
+			BackupMessenger.line(context.getSource(), configToggle(settings, "config.clearConfirm", settings.shouldConfirmBeforeClear(), "/backup set clear-confirm on", "/backup set clear-confirm off"));
+			BackupMessenger.line(context.getSource(), configChoice(settings, "config.language", settings.language(), settings.language().equals("zh_cn") ? "/backup set language en_us" : "/backup set language zh_cn", settings.language().equals("zh_cn") ? "menu.useEnglish" : "menu.useChinese"));
+			BackupMessenger.line(context.getSource(), BackupMessenger.commandButton(settings, "menu.refresh", "/backup menu config", "menu.refresh.hover")
+				.append(space())
+				.append(BackupMessenger.commandButton(settings, "menu.back", "/backup menu", "menu.back.hover")));
+			return 1;
+		} catch (Exception exception) {
+			BackupMessenger.error(context.getSource(), settings, "config.readFailed", exception.getMessage());
 			return 0;
 		}
 	}
@@ -460,6 +558,37 @@ public final class BackupCommand {
 
 	private static MutableComponent onOff(BackupSettings settings, boolean enabled) {
 		return enabled ? BackupMessenger.successText(settings, "state.on") : BackupMessenger.muted(BackupMessenger.t(settings, "state.off"));
+	}
+
+	private static MutableComponent configToggle(BackupSettings settings, String labelKey, boolean enabled, String onCommand, String offCommand) {
+		return BackupMessenger.label(settings, labelKey)
+			.append(onOff(settings, enabled))
+			.append(space())
+			.append(BackupMessenger.commandButton(settings, enabled ? "menu.turnOff" : "menu.turnOn", enabled ? offCommand : onCommand, enabled ? "menu.turnOff.hover" : "menu.turnOn.hover"));
+	}
+
+	private static MutableComponent configChoice(BackupSettings settings, String labelKey, String value, String command, String buttonKey) {
+		return BackupMessenger.label(settings, labelKey)
+			.append(BackupMessenger.value(value))
+			.append(space())
+			.append(BackupMessenger.commandButton(settings, buttonKey, command, "menu.apply.hover"));
+	}
+
+	private static MutableComponent configSuggest(BackupSettings settings, String labelKey, String value, String command) {
+		return BackupMessenger.label(settings, labelKey)
+			.append(BackupMessenger.value(value))
+			.append(space())
+			.append(BackupMessenger.suggestButton(settings, "menu.edit", command, "menu.edit.hover"));
+	}
+
+	private static MutableComponent configTrigger(BackupSettings settings) {
+		String command = settings.isCronScheduleTrigger() ? "/backup set schedule every " + DurationParser.formatMinutes(settings.intervalMinutes()) : "/backup set schedule cron " + settings.scheduleCron();
+		String buttonKey = settings.isCronScheduleTrigger() ? "menu.useEvery" : "menu.useCron";
+		return configChoice(settings, "config.scheduleTrigger", settings.scheduleTrigger(), command, buttonKey);
+	}
+
+	private static MutableComponent space() {
+		return Component.literal(" ");
 	}
 
 	private static int deleteBackups(CommandContext<CommandSourceStack> context) {
