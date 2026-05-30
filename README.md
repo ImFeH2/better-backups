@@ -71,8 +71,10 @@ Backup names use the server's local time.
 
 Restore any available backup from the command list. By default, the server stops and starts again after the selected backup is restored.
 
+<!-- modrinth_exclude.start -->
 ## Build
 
 ```text
 JAVA_HOME=/path/to/java-25 ./gradlew build
 ```
+<!-- modrinth_exclude.end -->

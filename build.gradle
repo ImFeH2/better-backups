@@ -75,7 +75,8 @@ modrinth {
 	uploadFile = tasks.jar
 	gameVersions = [project.minecraft_version]
 	loaders = ["fabric"]
-	changelog = rootProject.file("CHANGELOG.md").exists() ? rootProject.file("CHANGELOG.md").text : "See the GitHub release notes for changes."
+	changelog = "See the GitHub release notes for changes."
+	syncBodyFrom = rootProject.file("README.md").text
 	dependencies {
 		required.project "fabric-api"
 	}
