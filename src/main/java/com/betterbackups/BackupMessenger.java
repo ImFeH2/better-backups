@@ -50,6 +50,10 @@ public final class BackupMessenger {
 		send(source, body, false);
 	}
 
+	public static void item(CommandSourceStack source, Component body) {
+		line(source, item(body));
+	}
+
 	public static void broadcast(MinecraftServer server, Component body) {
 		server.getPlayerList().broadcastSystemMessage(message(body), false);
 	}
@@ -75,6 +79,10 @@ public final class BackupMessenger {
 
 	public static MutableComponent muted(String value) {
 		return text(value, ChatFormatting.GRAY);
+	}
+
+	public static MutableComponent item(Component body) {
+		return Component.literal("  ").append(body);
 	}
 
 	public static MutableComponent successText(String value) {

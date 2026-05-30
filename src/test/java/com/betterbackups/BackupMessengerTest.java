@@ -27,4 +27,12 @@ class BackupMessengerTest {
 		assertInstanceOf(ClickEvent.SuggestCommand.class, clickEvent);
 		assertEquals("/backup set max-backups 10", ((ClickEvent.SuggestCommand) clickEvent).command());
 	}
+
+	@Test
+	void itemPrefixesBodyWithTwoSpaces() {
+		MutableComponent item = BackupMessenger.item(BackupMessenger.value("entry"));
+
+		assertEquals("  ", item.getString().substring(0, 2));
+		assertEquals("entry", item.getSiblings().getFirst().getString());
+	}
 }
