@@ -1,5 +1,7 @@
 # Better Backups
 
+[简体中文](README.zh-CN.md)
+
 A better backup mod for Minecraft worlds.
 
 ## Commands
